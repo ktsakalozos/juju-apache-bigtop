@@ -1,0 +1,7 @@
+smoke-test:
+    description: Verify that HDFS is working by running a series of Apache Bigtop smoke tests
+    params:
+      component_name:
+        description: The name of the component to be tested
+        type: string
+        default: hdfs
