@@ -26,6 +26,7 @@ class Bigtop(object):
         self.setup_puppet_config(NN, RM)
         self.trigger_puppet()
         self.setup_hdfs()
+        self.setup_environment()
 
     def trigger_puppet(self):
         # TODO need to either manage the apt keys from Juju or
@@ -111,6 +112,30 @@ class Bigtop(object):
         Path(hr_conf).dirname().makedirs_p()
         with open(hr_conf, 'w+') as fd:
             yaml.dump(yaml_data, fd)
+
+    def setup_environment(self, sysenv_tuples=None):
+        '''
+        The function should be called by a downstream component layer in order to set
+        any aditional system environment variables
+        :param sysenv_tuples: list of tuples of sys.env vars and their values
+        Downstream component will invoke this function in the following way:
+            Bigtop().setup_environment([('HIVE_HOME','/usr/lib/hive'), ('HIVE_CONF_DIR', '/etc/hive/conf')])
+
+        The bigtop base layer sets up all required environment vars for HADOOP, HDFS, YARN, and JAVA_HOME
+        :return:
+        '''
+        realpath = os.path.realpath("/etc/alternatives/java")
+        java_home = os.path.dirname('{0}/..'.format(realpath))
+        with utils.environment_edit_in_place('/etc/environment') as env:
+            env['JAVA_HOME'] = java_home
+            env['HADOOP_HOME'] = '/usr/lib/hadoop'
+            env['HADOOP_CONF_DIR'] = '/etc/hadoop/conf'
+            env['HADOOP_HDFS_HOME'] = '/usr/lib/hadoop-hdfs'
+            env['HADOOP_YARN_HOME'] = '/usr/lib/hadoop-yarn'
+            env['HADOOP_MAPRED_HOME'] = '/usr/lib/hadoop-mapred'
+            for tuple in sysenv_tuples:
+                if tuple[0] != None:
+                    env[tuple[0]] = tuple[1]
 
 
 def get_bigtop_base():
