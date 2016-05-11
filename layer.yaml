@@ -2,6 +2,7 @@ includes: ['layer:basic', 'layer:puppet']
 
 defines:
   bigtop_component_list:
+    # XXX this should be a proper array of strings
     type: string
     default: 'hadoop'
     description: 'Space seperated list of bigtop component to be installed'
