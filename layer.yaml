@@ -1,4 +1,4 @@
-includes: ['layer:basic', 'layer:puppet', 'interface:java']
+includes: ['layer:basic', 'layer:puppet']
 
 defines:
   bigtop_component_list:
@@ -44,6 +44,11 @@ defines:
     type: string
     default: 'bigtop-deploy/puppet/hieradata/site.yaml'
     description: 'Hiera Bigtop config'
+
+  java_package_name:
+    type: string
+    default: 'default-jre-headless'
+    description: 'JDK/JRE package to be installed on all cluster nodes'
 
   hadoop_version:
     description: >

@@ -1,4 +1,3 @@
-import os
 import socket
 import subprocess
 import yaml
@@ -8,7 +7,7 @@ from path import Path
 from charms import layer
 from charmhelpers.fetch.archiveurl import ArchiveUrlFetchHandler
 from jujubigdata import utils
-from charmhelpers.core import hookenv, unitdata
+from charmhelpers.core import hookenv
 from charmhelpers.core.host import chdir
 
 
@@ -105,7 +104,7 @@ class Bigtop(object):
 
         # define common defaults
         site_data = {
-            'bigtop::jdk_preinstalled': True,
+            'bigtop::jdk_package_name': self.options.get('java_package_name'),
             'bigtop::bigtop_repo_uri': bigtop_apt,
             'hadoop::hadoop_storage_dirs': ['/data/1', '/data/2'],
         }
@@ -210,10 +209,6 @@ class Bigtop(object):
 
 
 def get_hadoop_version():
-    java_home = unitdata.kv().get('java_home')
-    if not java_home:
-        return None
-    os.environ['JAVA_HOME'] = java_home
     try:
         hadoop_out = subprocess.check_output(['hadoop', 'version']).decode()
     except subprocess.CalledProcessError as e:
