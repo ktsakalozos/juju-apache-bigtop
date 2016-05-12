@@ -1,3 +1,4 @@
+import os
 import socket
 import subprocess
 import yaml
@@ -7,7 +8,7 @@ from path import Path
 from charms import layer
 from charmhelpers.fetch.archiveurl import ArchiveUrlFetchHandler
 from jujubigdata import utils
-from charmhelpers.core import hookenv
+from charmhelpers.core import hookenv, unitdata
 from charmhelpers.core.host import chdir
 
 
@@ -19,18 +20,17 @@ class Bigtop(object):
         self.bigtop_base = Path(self.bigtop_dir) / self.bigtop_version
         self.site_yaml = self.bigtop_base / self.options.get('bigtop_hiera_siteyaml')
 
-    def install(self, hosts, roles=None, overrides=None):
+    def install(self):
         """
-        Fetch, install, setup puppet config, and run puppet apply.
+        Install the base components of Apache Bigtop.
 
-        All parameters will be passed through to `render_site_yaml`.
+        You will then need to call `render_site_yaml` to set up the correct
+        configuration and `trigger_puppet` to install the desired components.
         """
         self.fetch_bigtop_release()
         self.install_puppet_modules()
-        self.render_hiera_yaml()
-        self.render_site_yaml(hosts, roles, overrides)
         self.apply_patches()
-        self.trigger_puppet()
+        self.render_hiera_yaml()
 
     def fetch_bigtop_release(self):
         # download Bigtop release; unpack the recipes
@@ -44,6 +44,29 @@ class Bigtop(object):
         utils.run_as('root', 'puppet', 'module', 'install', 'puppetlabs-stdlib')
         utils.run_as('root', 'puppet', 'module', 'install', 'puppetlabs-apt')
 
+    def apply_patches(self):
+        charm_dir = hookenv.charm_dir()
+        # TODO JIRA KWM: rm does not need Hdfs_init and will fail
+        rm_patch = Path(charm_dir) / 'resources/patch1_rm_init_hdfs.patch'
+        # TODO JIRA KWM: nm should not *need* mapred role. we could patch it
+        # with nm_patch, or adjust nm charm to include mapred role. for now,
+        # we're doing the latter. todo rfc from dev@bigtop list.
+        # nm_patch = Path(charm_dir) / 'resources/patch2_nm_core-site.patch'
+        # TODO JIRA KWM: client role needs common_yarn for yarn-site.xml
+        client_patch = Path(charm_dir) / 'resources/patch3_client_role_use_common_yarn.patch'
+        # TODO JIRA CAJ: we want to preinstall a JDK
+        java_patch = Path(charm_dir) / 'resources/patch4_site_jdk_preinstalled.patch'
+        with chdir("{}".format(self.bigtop_base)):
+            # rm patch goes first
+            utils.run_as('root', 'patch', '-p1', '-s', '-i', rm_patch)
+            # skip nm_patch for now since nm charm is including mapred role
+            # utils.run_as('root', 'patch', '-p1', '-s', '-i', nm_patch)
+            # client patch goes last
+            utils.run_as('root', 'patch', '-p1', '-s', '-i', client_patch)
+            # and finally, patch site.pp to skip jdk install
+            utils.run_as('root', 'patch', '-p0', '-s', '-i', java_patch)
+        # TODO FIX ABOVE KWM
+
     def render_hiera_yaml(self):
         """
         Render the ``hiera.yaml`` file with the correct path to our ``site.yaml`` file.
@@ -55,10 +78,11 @@ class Bigtop(object):
         hiera_yaml = yaml.load(hiera_src.text())
 
         # set the datadir
-        hiera_yaml[':yaml:'][':datadir:'] = self.site_yaml.dirname()
+        hiera_yaml[':yaml'][':datadir'] = str(self.site_yaml.dirname())
 
-        # write the file
-        hiera_dst.write_text(yaml.dump(hiera_yaml))
+        # write the file (note: Hiera is a bit picky about the format of
+        # the yaml file, so the default_flow_style=False is required)
+        hiera_dst.write_text(yaml.dump(hiera_yaml, default_flow_style=False))
 
     def render_site_yaml(self, hosts, roles=None, overrides=None):
         """
@@ -77,12 +101,11 @@ class Bigtop(object):
 
         :param dict overrides: Additional Hiera data to override defaults.
         """
-        java_package_name = self.options.get('java_package_name')
         bigtop_apt = self.options.get('bigtop_repo-{}'.format(utils.cpu_arch()))
 
         # define common defaults
         site_data = {
-            'bigtop::jdk_package_name': java_package_name,
+            'bigtop::jdk_preinstalled': True,
             'bigtop::bigtop_repo_uri': bigtop_apt,
             'hadoop::hadoop_storage_dirs': ['/data/1', '/data/2'],
         }
@@ -128,28 +151,12 @@ class Bigtop(object):
 
         # write the file
         self.site_yaml.dirname().makedirs_p()
-        self.site_yaml.write_text(yaml.dump(site_data))
-
-    def apply_patches(self):
-        charm_dir = hookenv.charm_dir()
-        # TODO JIRA KWM: rm does not need Hdfs_init and will fail
-        rm_patch = Path(charm_dir) / 'resources/patch1_rm_init_hdfs.patch'
-        # TODO JIRA KWM: nm should not *need* mapred role. we could patch it
-        # with nm_patch, or adjust nm charm to include mapred role. for now,
-        # we're doing the latter. todo rfc from dev@bigtop list.
-        # nm_patch = Path(charm_dir) / 'resources/patch2_nm_core-site.patch'
-        # TODO JIRA KWM: client role needs common_yarn for yarn-site.xml
-        client_patch = Path(charm_dir) / 'resources/patch3_client_role_use_common_yarn.patch'
-        with chdir("{}".format(self.bigtop_base)):
-            # rm patch goes first
-            utils.run_as('root', 'patch', '-p1', '-s', '-i', rm_patch)
-            # skip nm_patch for now since nm charm is including mapred role
-            # utils.run_as('root', 'patch', '-p1', '-s', '-i', nm_patch)
-            # client patch goes last
-            utils.run_as('root', 'patch', '-p1', '-s', '-i', client_patch)
-        # TODO FIX ABOVE KWM
+        self.site_yaml.write_text(yaml.dump(site_data, default_flow_style=False))
 
     def trigger_puppet(self):
+        """
+        Trigger Puppet to install the desired components.
+        """
         # If we can't reverse resolve the hostname (like on azure), support DN
         # registration by IP address.
         # NB: determine this *before* updating /etc/hosts below since
@@ -191,7 +198,8 @@ class Bigtop(object):
         utils.run_as('hdfs', 'hdfs', 'dfs', '-chown', 'ubuntu', '/user/ubuntu')
 
     def spec(self):
-        """Return spec for services that require compatibility checks.
+        """
+        Return spec for services that require compatibility checks.
 
         This must only be called after 'hadoop' is installed.
         """
@@ -201,14 +209,21 @@ class Bigtop(object):
         }
 
 
-def get_bigtop_base():
-    return Bigtop()
-
-
 def get_hadoop_version():
-    hadoop_out = subprocess.check_output(['hadoop', 'version']).decode()
-    version = hadoop_out.split('\n')[0].split()[1]
-    return version
+    java_home = unitdata.kv().get('java_home')
+    if not java_home:
+        return None
+    os.environ['JAVA_HOME'] = java_home
+    try:
+        hadoop_out = subprocess.check_output(['hadoop', 'version']).decode()
+    except subprocess.CalledProcessError as e:
+        hadoop_out = e.output
+    parts = hadoop_out.splitlines()[0].split()
+    if len(parts) < 2:
+        hookenv.log('Error getting Hadoop version: {}'.format(hadoop_out),
+                    hookenv.ERROR)
+        return None
+    return parts[1]
 
 
 def get_layer_opts():

@@ -1,0 +1,4 @@
+provides:
+  java:
+    interface: java
+    scope: container
