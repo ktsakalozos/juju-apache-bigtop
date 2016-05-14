@@ -1,3 +1,4 @@
+import os
 import socket
 import subprocess
 import yaml
@@ -7,11 +8,16 @@ from path import Path
 from charms import layer
 from charmhelpers.fetch.archiveurl import ArchiveUrlFetchHandler
 from jujubigdata import utils
-from charmhelpers.core import hookenv
+from charmhelpers.core import hookenv, unitdata
 from charmhelpers.core.host import chdir
+from charms.reactive import when, set_state, remove_state
 
 
 class Bigtop(object):
+    _hosts = {}
+    _roles = set()
+    _overrides = {}
+
     def __init__(self):
         self.bigtop_dir = '/home/ubuntu/bigtop.release'
         self.options = layer.options('apache-bigtop-base')
@@ -83,37 +89,68 @@ class Bigtop(object):
         # the yaml file, so the default_flow_style=False is required)
         hiera_dst.write_text(yaml.dump(hiera_yaml, default_flow_style=False))
 
-    def render_site_yaml(self, hosts, roles=None, overrides=None):
+    def render_site_yaml(self, hosts=None, roles=None, overrides=None):
         """
         Render ``site.yaml`` file with appropriate Hiera data.
 
-        :param dict hosts: Mapping of host names to master addresses.
-            Currently supported names are: namenode, resourcemanager, spark,
-            zk, and zk_quorum.  Each master address be applied to all
-            appropriate Hiera properties.
+        :param dict hosts: Mapping of host names to master addresses, which
+            will be used by `render_site_yaml` to create the configuration for Puppet.
 
-        :param list roles: Optional list of roles this machine will perform.
-            If not given, the ``bigtop_component_list`` layer option will
-            determine which components are configured, and the specific roles
-            will be decided based on whether this machine matches one of the
-            master addresses in the ``hosts`` map.
+            Currently supported names are:
 
-        :param dict overrides: Additional Hiera data to override defaults.
+              * namenode
+              * resourcemanager
+              * spark
+              * zk
+              * zk_quorum
+
+            Each master address be applied to all appropriate Hiera properties.
+
+            Note that this is additive.  That is, if the file is rendered again
+            with a different set of hosts, the old hosts will be preserved.
+
+        :param list roles: A list of roles this machine will perform, which
+            will be used by `render_site_yaml` to create the configuration for
+            Puppet.
+
+            If no roles are set, the ``bigtop_component_list`` layer option
+            will determine which components are configured, and the specific
+            roles will be decided based on whether this machine matches one of
+            the master addresses in the `hosts` map.
+
+            Note that this is additive.  That is, if the file is rendered again
+            with a different set of roles, the old roles will be preserved.
+
+        :param dict overrides: A dict of additional data to go in to the
+            ``site.yaml``, which will override data generated from `hosts`
+            and `roles`.
+
+            Note that extra properties set by this are additive.  That is,
+            if the file is rendered again with a different set of overrides,
+            any properties that are not overridden by the new hosts, roles,
+            or overrides will be preserved.
         """
-        bigtop_apt = self.options.get('bigtop_repo-{}'.format(utils.cpu_arch()))
+        hosts = hosts or {}
+        roles = roles or []
+        if isinstance(roles, str):
+            roles = [roles]
+        overrides = overrides or {}
+        site_data = yaml.load(self.site_yaml.text())
 
         # define common defaults
-        site_data = {
-            'bigtop::jdk_package_name': self.options.get('java_package_name'),
+        bigtop_apt = self.options.get('bigtop_repo-{}'.format(utils.cpu_arch()))
+        site_data.update({
             'bigtop::bigtop_repo_uri': bigtop_apt,
+            'bigtop::jdk_preinstalled': True,
             'hadoop::hadoop_storage_dirs': ['/data/1', '/data/2'],
-        }
+        })
 
         # update based on configuration type (roles vs components)
+        roles = set(roles) | set(site_data.get('bigtop::roles', []))
         if roles:
             site_data.update({
                 'bigtop::roles_enabled': True,
-                'bigtop::roles': roles,
+                'bigtop::roles': sorted(roles),
             })
         else:
             gw_host = subprocess.check_output(['facter', 'fqdn']).strip().decode()
@@ -139,18 +176,32 @@ class Bigtop(object):
             'zk_quorum': ['hadoop_zookeeper::server::ensemble'],
             'spark': ['spark::common::master_host'],
         }
-        for host, properties in hosts_to_properties.items():
-            if host in hosts:
-                for prop in properties:
-                    site_data[prop] = hosts[host]
+        for host in hosts.keys() & hosts_to_properties.keys():
+            for prop in hosts_to_properties[host]:
+                site_data[prop] = hosts[host]
 
         # apply any additonal data / overrides
-        if overrides:
-            site_data.update(overrides)
+        site_data.update(overrides)
 
         # write the file
         self.site_yaml.dirname().makedirs_p()
         self.site_yaml.write_text(yaml.dump(site_data, default_flow_style=False))
+
+    def queue_puppet(self):
+        """
+        Queue a reactive handler that will call `trigger_puppet`.
+
+        This is used to give any other concurrent handlers a chance to update
+        the ``site.yaml`` with new hosts, roles, or overrides.
+        """
+        set_state('apache-bigtop-base.puppet_queued')
+
+    @staticmethod
+    @when('apache-bigtop-base.puppet_queued')
+    def _handle_queued_puppet():
+        self = Bigtop()
+        self.trigger_puppet()
+        remove_state('apache-bigtop-base.puppet_queued')
 
     def trigger_puppet(self):
         """
@@ -166,18 +217,21 @@ class Bigtop(object):
         except socket.herror:
             reverse_dns_bad = True
 
-        # We know java7 has MAXHOSTNAMELEN of 64 char, so we cannot rely on
-        # java to do a hostname lookup on clouds that have >64 char fqdns
-        # (gce). Force short hostname (< 64 char) into /etc/hosts as workaround.
-        # Better fix may be to move to java8. See http://paste.ubuntu.com/16230171/
-        # NB: do this before the puppet apply, which may call java stuffs
-        # like format namenode, which will fail if we dont get this fix
-        # down early.
-        short_host = subprocess.check_output(['facter', 'hostname']).strip().decode()
-        private_ip = utils.resolve_private_address(hookenv.unit_private_ip())
-        if short_host and private_ip:
-            utils.update_kv_host(private_ip, short_host)
-            utils.manage_etc_hosts()
+        java_version = unitdata.kv().get('java_version', '')
+        if java_version.startswith('1.7.') and len(get_fqdn()) > 64:
+            # We know java7 has MAXHOSTNAMELEN of 64 char, so we cannot rely on
+            # java to do a hostname lookup on clouds that have >64 char FQDNs
+            # (e.g., gce). Attempt to work around this by putting the (hopefully
+            # short) hostname into /etc/hosts so that it will (hopefully) be
+            # used instead (see http://paste.ubuntu.com/16230171/).
+            # NB: do this before the puppet apply, which may call java stuffs
+            # like format namenode, which will fail if we dont get this fix
+            # down early.
+            short_host = subprocess.check_output(['facter', 'hostname']).strip().decode()
+            private_ip = utils.resolve_private_address(hookenv.unit_private_ip())
+            if short_host and private_ip:
+                utils.update_kv_host(private_ip, short_host)
+                utils.manage_etc_hosts()
 
         # puppet apply needs to be ran where recipes were unpacked
         with chdir("{}".format(self.bigtop_base)):
@@ -190,6 +244,10 @@ class Bigtop(object):
             hdfs_site = Path('/etc/hadoop/conf/hdfs-site.xml')
             with utils.xmlpropmap_edit_in_place(hdfs_site) as props:
                 props['dfs.namenode.datanode.registration.ip-hostname-check'] = 'false'
+        java_home = unitdata.kv().get('java_home')
+        utils.re_edit_in_place('/etc/default/bigtop-utils', {
+            r'(# )?export JAVA_HOME.*': 'export JAVA_HOME={}'.format(java_home),
+        })
 
     def setup_hdfs(self):
         # TODO ubuntu user needs to be added to the upstream HDFS formating
@@ -209,11 +267,18 @@ class Bigtop(object):
 
 
 def get_hadoop_version():
+    java_home = unitdata.kv().get('java_home')
+    if not java_home:
+        return None
+    os.environ['JAVA_HOME'] = java_home
     try:
         hadoop_out = subprocess.check_output(['hadoop', 'version']).decode()
+    except FileNotFoundError:
+        hadoop_out = ''
     except subprocess.CalledProcessError as e:
         hadoop_out = e.output
-    parts = hadoop_out.splitlines()[0].split()
+    lines = hadoop_out.splitlines()
+    parts = lines[0].split() if lines else []
     if len(parts) < 2:
         hookenv.log('Error getting Hadoop version: {}'.format(hadoop_out),
                     hookenv.ERROR)
