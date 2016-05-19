@@ -1,4 +1,8 @@
 includes: ['layer:basic', 'layer:puppet', 'interface:java']
+options:
+  basic:
+    packages:
+      - unzip
 
 defines:
   bigtop_component_list:
