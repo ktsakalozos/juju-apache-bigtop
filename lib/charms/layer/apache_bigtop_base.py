@@ -249,6 +249,20 @@ class Bigtop(object):
             r'(# )?export JAVA_HOME.*': 'export JAVA_HOME={}'.format(java_home),
         })
 
+    def check_hdfs_setup(self):
+        """
+        Check if the initial setup has been done in HDFS.
+
+        This currently consists of initializing the /user/ubuntu directory.
+        """
+        try:
+            output = utils.run_as('hdfs',
+                                  'hdfs', 'dfs', '-stat', '%u', '/user/ubuntu',
+                                  capture_output=True)
+            return output.strip() == 'ubuntu'
+        except subprocess.CalledProcessError:
+            return False
+
     def setup_hdfs(self):
         # TODO ubuntu user needs to be added to the upstream HDFS formating
         utils.run_as('hdfs', 'hdfs', 'dfs', '-mkdir', '-p', '/user/ubuntu')
