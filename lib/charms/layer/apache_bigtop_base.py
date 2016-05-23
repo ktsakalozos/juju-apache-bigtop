@@ -153,12 +153,13 @@ class Bigtop(object):
 
         # define common defaults
         bigtop_apt = self.options.get('bigtop_repo-{}'.format(utils.cpu_arch()))
+        hostname_check = unitdata.kv().get('reverse_dns_ok')
         site_data.update({
             'bigtop::bigtop_repo_uri': bigtop_apt,
             'bigtop::jdk_preinstalled': True,
             'hadoop::hadoop_storage_dirs': ['/data/1', '/data/2'],
             'hadoop::common_yarn::yarn_nodemanager_vmem_check_enabled': False,
-            'hadoop::common_hdfs::ip_hostname_check': unitdata.kv().get('reverse_dns_ok'),
+            'hadoop::common_hdfs::namenode_datanode_registration_ip_hostname_check': hostname_check,
         })
 
         # update based on configuration type (roles vs components)

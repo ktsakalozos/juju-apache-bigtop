@@ -14,7 +14,7 @@ index 9a7176a..a42c92d 100644
        $hadoop_http_authentication_signature_secret_file = "/etc/hadoop/conf/hadoop-http-authentication-signature-secret",
        $hadoop_http_authentication_cookie_domain = regsubst($fqdn, "^[^\\.]+\\.", ""),
        $generate_secrets = $hadoop::generate_secrets,
-+      $ip_hostname_check = true,
++      $namenode_datanode_registration_ip_hostname_check = true,
    ) inherits hadoop {
  
      $sshfence_keydir  = "$hadoop_ha_sshfence_user_home/.ssh"
@@ -28,7 +28,7 @@ index 328cf6f..aa4b3ca 100644
  
 +  <property>
 +    <name>dfs.namenode.datanode.registration.ip-hostname-check</name>
-+    <value><%= @ip_hostname_check %></value>
++    <value><%= @namenode_datanode_registration_ip_hostname_check %></value>
 +  </property>
 +
  <%   namenode_hosts.each_with_index do |host,idx| -%>
