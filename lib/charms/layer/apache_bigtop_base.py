@@ -51,26 +51,23 @@ class Bigtop(object):
 
     def apply_patches(self):
         charm_dir = hookenv.charm_dir()
-        # TODO JIRA KWM: rm does not need Hdfs_init and will fail
+        # BIGTOP-2442: rm does not need Hdfs_init and will fail
         rm_patch = Path(charm_dir) / 'resources/patch1_rm_init_hdfs.patch'
-        # TODO JIRA KWM: nm should not *need* mapred role. we could patch it
-        # with nm_patch, or adjust nm charm to include mapred role. for now,
-        # we're doing the latter. todo rfc from dev@bigtop list.
-        # nm_patch = Path(charm_dir) / 'resources/patch2_nm_core-site.patch'
-        # TODO JIRA KWM: client role needs common_yarn for yarn-site.xml
+        # BIGTOP-2453: nm role needs core-site.xml and mapred shuffle classes.
+        nm_patch = Path(charm_dir) / 'resources/patch2_nm_core-site.patch'
+        # BIGTOP-2454: client role needs common_yarn for yarn-site.xml
         client_patch = Path(charm_dir) / 'resources/patch3_client_role_use_common_yarn.patch'
-        # TODO JIRA CAJ: we want to preinstall a JDK
+        # BIGTOP-2454: support preinstalled java env since we use a java relation
         java_patch = Path(charm_dir) / 'resources/patch4_site_jdk_preinstalled.patch'
         with chdir("{}".format(self.bigtop_base)):
             # rm patch goes first
             utils.run_as('root', 'patch', '-p1', '-s', '-i', rm_patch)
-            # skip nm_patch for now since nm charm is including mapred role
-            # utils.run_as('root', 'patch', '-p1', '-s', '-i', nm_patch)
-            # client patch goes last
+            # nm patch (not strictly necessary since nm includes mapred-app role)
+            utils.run_as('root', 'patch', '-p1', '-s', '-i', nm_patch)
+            # client patch goes next
             utils.run_as('root', 'patch', '-p1', '-s', '-i', client_patch)
             # and finally, patch site.pp to skip jdk install
-            utils.run_as('root', 'patch', '-p0', '-s', '-i', java_patch)
-        # TODO FIX ABOVE KWM
+            utils.run_as('root', 'patch', '-p1', '-s', '-i', java_patch)
 
     def render_hiera_yaml(self):
         """

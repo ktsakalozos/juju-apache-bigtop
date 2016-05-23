@@ -4,7 +4,7 @@
    }
 
    class client {
-+      include common_yarn
        include common_mapred_app
++      include common_yarn
 
        $hadoop_client_packages = $operatingsystem ? {
