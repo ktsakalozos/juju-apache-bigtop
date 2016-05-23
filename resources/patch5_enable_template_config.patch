@@ -1,0 +1,52 @@
+diff --git a/bigtop-deploy/puppet/modules/hadoop/manifests/init.pp b/bigtop-deploy/puppet/modules/hadoop/manifests/init.pp
+index 9a7176a..a42c92d 100644
+--- a/bigtop-deploy/puppet/modules/hadoop/manifests/init.pp
++++ b/bigtop-deploy/puppet/modules/hadoop/manifests/init.pp
+@@ -153,6 +153,7 @@ class hadoop ($hadoop_security_authentication = "simple",
+       $container_executor_min_user_id = "499",
+       $hadoop_security_authentication = $hadoop::hadoop_security_authentication,
+       $kerberos_realm = $hadoop::kerberos_realm,
++      $yarn_nodemanager_vmem_check_enabled = true,
+   ) inherits hadoop {
+ 
+     include common
+@@ -230,6 +231,7 @@ class hadoop ($hadoop_security_authentication = "simple",
+       $hadoop_http_authentication_signature_secret_file = "/etc/hadoop/conf/hadoop-http-authentication-signature-secret",
+       $hadoop_http_authentication_cookie_domain = regsubst($fqdn, "^[^\\.]+\\.", ""),
+       $generate_secrets = $hadoop::generate_secrets,
++      $ip_hostname_check = true,
+   ) inherits hadoop {
+ 
+     $sshfence_keydir  = "$hadoop_ha_sshfence_user_home/.ssh"
+diff --git a/bigtop-deploy/puppet/modules/hadoop/templates/hdfs-site.xml b/bigtop-deploy/puppet/modules/hadoop/templates/hdfs-site.xml
+index 328cf6f..aa4b3ca 100644
+--- a/bigtop-deploy/puppet/modules/hadoop/templates/hdfs-site.xml
++++ b/bigtop-deploy/puppet/modules/hadoop/templates/hdfs-site.xml
+@@ -39,6 +39,11 @@
+     <value><%= (1..namenode_hosts.length).map { |n| "nn#{n}" }.join(",") %></value>
+   </property>
+ 
++  <property>
++    <name>dfs.namenode.datanode.registration.ip-hostname-check</name>
++    <value><%= @ip_hostname_check %></value>
++  </property>
++
+ <%   namenode_hosts.each_with_index do |host,idx| -%>
+   <property>
+     <name>dfs.namenode.rpc-address.<%= @nameservice_id %>.nn<%= idx+1 %></name>
+diff --git a/bigtop-deploy/puppet/modules/hadoop/templates/yarn-site.xml b/bigtop-deploy/puppet/modules/hadoop/templates/yarn-site.xml
+index 054ae65..12b3e56 100644
+--- a/bigtop-deploy/puppet/modules/hadoop/templates/yarn-site.xml
++++ b/bigtop-deploy/puppet/modules/hadoop/templates/yarn-site.xml
+@@ -175,6 +175,11 @@
+   </property>
+ 
+   <property>
++    <name>yarn.nodemanager.vmem-check-enabled</name>
++    <value><%= @yarn_nodemanager_vmem_check_enabled %></value>
++  </property>
++
++  <property>
+     <description>Classpath for typical applications.</description>
+      <name>yarn.application.classpath</name>
+      <value>
