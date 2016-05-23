@@ -32,6 +32,7 @@ class Bigtop(object):
         You will then need to call `render_site_yaml` to set up the correct
         configuration and `trigger_puppet` to install the desired components.
         """
+        self.check_reverse_dns()
         self.fetch_bigtop_release()
         self.install_puppet_modules()
         self.apply_patches()
@@ -40,7 +41,7 @@ class Bigtop(object):
     def check_reverse_dns(self):
         # If we can't reverse resolve the hostname (like on azure), support DN
         # registration by IP address.
-        # NB: determine this *before* updating /etc/hosts below since
+        # NB: call this *before* any /etc/hosts changes since
         # gethostbyaddr will not fail if we have an /etc/hosts entry.
         reverse_dns_ok = True
         try:

@@ -2,8 +2,8 @@ includes: ['layer:basic', 'layer:puppet', 'interface:java']
 options:
   basic:
     packages:
+      - dphys-swapfile
       - unzip
-
 defines:
   bigtop_component_list:
     # XXX this should be a proper array of strings
