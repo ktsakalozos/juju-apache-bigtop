@@ -1,5 +1,5 @@
 diff --git a/bigtop-deploy/puppet/modules/hadoop/manifests/init.pp b/bigtop-deploy/puppet/modules/hadoop/manifests/init.pp
-index 9a7176a..a42c92d 100644
+index 9a7176a..b66329e 100644
 --- a/bigtop-deploy/puppet/modules/hadoop/manifests/init.pp
 +++ b/bigtop-deploy/puppet/modules/hadoop/manifests/init.pp
 @@ -153,6 +153,7 @@ class hadoop ($hadoop_security_authentication = "simple",
@@ -19,21 +19,19 @@ index 9a7176a..a42c92d 100644
  
      $sshfence_keydir  = "$hadoop_ha_sshfence_user_home/.ssh"
 diff --git a/bigtop-deploy/puppet/modules/hadoop/templates/hdfs-site.xml b/bigtop-deploy/puppet/modules/hadoop/templates/hdfs-site.xml
-index 328cf6f..aa4b3ca 100644
+index 328cf6f..9dce36a 100644
 --- a/bigtop-deploy/puppet/modules/hadoop/templates/hdfs-site.xml
 +++ b/bigtop-deploy/puppet/modules/hadoop/templates/hdfs-site.xml
-@@ -39,6 +39,11 @@
-     <value><%= (1..namenode_hosts.length).map { |n| "nn#{n}" }.join(",") %></value>
-   </property>
+@@ -297,4 +297,9 @@
  
+ <%   end -%>
+ <% end -%>
++
 +  <property>
 +    <name>dfs.namenode.datanode.registration.ip-hostname-check</name>
 +    <value><%= @namenode_datanode_registration_ip_hostname_check %></value>
 +  </property>
-+
- <%   namenode_hosts.each_with_index do |host,idx| -%>
-   <property>
-     <name>dfs.namenode.rpc-address.<%= @nameservice_id %>.nn<%= idx+1 %></name>
+ </configuration>
 diff --git a/bigtop-deploy/puppet/modules/hadoop/templates/yarn-site.xml b/bigtop-deploy/puppet/modules/hadoop/templates/yarn-site.xml
 index 054ae65..12b3e56 100644
 --- a/bigtop-deploy/puppet/modules/hadoop/templates/yarn-site.xml
