@@ -32,10 +32,23 @@ class Bigtop(object):
         You will then need to call `render_site_yaml` to set up the correct
         configuration and `trigger_puppet` to install the desired components.
         """
+        self.check_reverse_dns()
         self.fetch_bigtop_release()
         self.install_puppet_modules()
         self.apply_patches()
         self.render_hiera_yaml()
+
+    def check_reverse_dns(self):
+        # If we can't reverse resolve the hostname (like on azure), support DN
+        # registration by IP address.
+        # NB: call this *before* any /etc/hosts changes since
+        # gethostbyaddr will not fail if we have an /etc/hosts entry.
+        reverse_dns_ok = True
+        try:
+            socket.gethostbyaddr(utils.resolve_private_address(hookenv.unit_private_ip()))
+        except socket.herror:
+            reverse_dns_ok = False
+        unitdata.kv().set('reverse_dns_ok', reverse_dns_ok)
 
     def fetch_bigtop_release(self):
         # download Bigtop release; unpack the recipes
@@ -59,6 +72,8 @@ class Bigtop(object):
         client_patch = Path(charm_dir) / 'resources/patch3_client_role_use_common_yarn.patch'
         # BIGTOP-2454: support preinstalled java env since we use a java relation
         java_patch = Path(charm_dir) / 'resources/patch4_site_jdk_preinstalled.patch'
+        # BIGTOP-????: enable ip-hostname-check and vmem template options
+        tmpl_patch = Path(charm_dir) / 'resources/patch5_enable_template_config.patch'
         with chdir("{}".format(self.bigtop_base)):
             # rm patch goes first
             utils.run_as('root', 'patch', '-p1', '-s', '-i', rm_patch)
@@ -66,8 +81,10 @@ class Bigtop(object):
             utils.run_as('root', 'patch', '-p1', '-s', '-i', nm_patch)
             # client patch goes next
             utils.run_as('root', 'patch', '-p1', '-s', '-i', client_patch)
-            # and finally, patch site.pp to skip jdk install
+            # patch site.pp to skip jdk install
             utils.run_as('root', 'patch', '-p1', '-s', '-i', java_patch)
+            # patch to enable template config options
+            utils.run_as('root', 'patch', '-p1', '-s', '-i', tmpl_patch)
 
     def render_hiera_yaml(self):
         """
@@ -136,10 +153,13 @@ class Bigtop(object):
 
         # define common defaults
         bigtop_apt = self.options.get('bigtop_repo-{}'.format(utils.cpu_arch()))
+        hostname_check = unitdata.kv().get('reverse_dns_ok')
         site_data.update({
             'bigtop::bigtop_repo_uri': bigtop_apt,
             'bigtop::jdk_preinstalled': True,
             'hadoop::hadoop_storage_dirs': ['/data/1', '/data/2'],
+            'hadoop::common_yarn::yarn_nodemanager_vmem_check_enabled': False,
+            'hadoop::common_hdfs::namenode_datanode_registration_ip_hostname_check': hostname_check,
         })
 
         # update based on configuration type (roles vs components)
@@ -204,16 +224,6 @@ class Bigtop(object):
         """
         Trigger Puppet to install the desired components.
         """
-        # If we can't reverse resolve the hostname (like on azure), support DN
-        # registration by IP address.
-        # NB: determine this *before* updating /etc/hosts below since
-        # gethostbyaddr will not fail if we have an /etc/hosts entry.
-        reverse_dns_bad = False
-        try:
-            socket.gethostbyaddr(utils.resolve_private_address(hookenv.unit_private_ip()))
-        except socket.herror:
-            reverse_dns_bad = True
-
         java_version = unitdata.kv().get('java_version', '')
         if java_version.startswith('1.7.') and len(get_fqdn()) > 64:
             # We know java7 has MAXHOSTNAMELEN of 64 char, so we cannot rely on
@@ -237,10 +247,6 @@ class Bigtop(object):
                          'bigtop-deploy/puppet/manifests/site.pp')
 
         # Do any post-puppet config on the generated config files.
-        if reverse_dns_bad:
-            hdfs_site = Path('/etc/hadoop/conf/hdfs-site.xml')
-            with utils.xmlpropmap_edit_in_place(hdfs_site) as props:
-                props['dfs.namenode.datanode.registration.ip-hostname-check'] = 'false'
         java_home = unitdata.kv().get('java_home')
         utils.re_edit_in_place('/etc/default/bigtop-utils', {
             r'(# )?export JAVA_HOME.*': 'export JAVA_HOME={}'.format(java_home),
