@@ -74,6 +74,9 @@ class Bigtop(object):
         java_patch = Path(charm_dir) / 'resources/patch4_site_jdk_preinstalled.patch'
         # BIGTOP-????: enable ip-hostname-check and vmem template options
         tmpl_patch = Path(charm_dir) / 'resources/patch5_enable_template_config.patch'
+        # TODO JIRA KJackal: we need configurable Spark log dirs to remove
+        # dependency on HDFS
+        spark_logs_patch = Path(charm_dir) / 'resources/patch5_spark_log_dirs.patch'
         with chdir("{}".format(self.bigtop_base)):
             # rm patch goes first
             utils.run_as('root', 'patch', '-p1', '-s', '-i', rm_patch)
@@ -85,6 +88,8 @@ class Bigtop(object):
             utils.run_as('root', 'patch', '-p1', '-s', '-i', java_patch)
             # patch to enable template config options
             utils.run_as('root', 'patch', '-p1', '-s', '-i', tmpl_patch)
+            # apply configurable spark logs patch
+            utils.run_as('root', 'patch', '-p1', '-s', '-i', spark_logs_patch)
 
     def render_hiera_yaml(self):
         """

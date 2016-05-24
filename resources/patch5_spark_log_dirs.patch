@@ -1,0 +1,26 @@
+diff -ruN bigtop-orig/bigtop-deploy/puppet/modules/spark/manifests/init.pp bigtop/bigtop-deploy/puppet/modules/spark/manifests/init.pp
+--- bigtop-orig/bigtop-deploy/puppet/modules/spark/manifests/init.pp	2016-05-23 12:41:14.699500039 +0300
++++ bigtop/bigtop-deploy/puppet/modules/spark/manifests/init.pp	2016-05-16 17:11:56.293721700 +0300
+@@ -143,6 +143,8 @@
+       $worker_ui_port = 8081,
+       $history_ui_port = 18080,
+       $use_yarn_shuffle_service = false,
++      $event_log_dir = 'hdfs:///var/log/spark/apps',
++      $history_log_dir = 'hdfs:///var/log/spark/apps',
+   ) {
+ 
+     package { 'spark-core':
+diff -ruN bigtop-orig/bigtop-deploy/puppet/modules/spark/templates/spark-defaults.conf bigtop/bigtop-deploy/puppet/modules/spark/templates/spark-defaults.conf
+--- bigtop-orig/bigtop-deploy/puppet/modules/spark/templates/spark-defaults.conf	2016-05-23 12:41:14.699500039 +0300
++++ bigtop/bigtop-deploy/puppet/modules/spark/templates/spark-defaults.conf	2016-05-16 17:07:20.426140725 +0300
+@@ -15,8 +15,8 @@
+ 
+ spark.master <%= @master_url %>
+ spark.eventLog.enabled true
+-spark.eventLog.dir hdfs:///var/log/spark/apps
+-spark.history.fs.logDirectory hdfs:///var/log/spark/apps
++spark.eventLog.dir <%= @event_log_dir %>
++spark.history.fs.logDirectory <%= @history_log_dir %>
+ spark.yarn.historyServer.address <%= @master_host %>:<%= @history_ui_port %>
+ spark.history.ui.port <%= @history_ui_port %>
+ spark.shuffle.service.enabled <%= @use_yarn_shuffle_service %>
