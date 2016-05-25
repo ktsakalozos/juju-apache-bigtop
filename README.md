@@ -1,4 +1,4 @@
-# Overview
+## Overview
 
 This is the base layer for charms that wish to take advantage of
 Apache's Bigtop framework for configuring and deploying services via
@@ -6,7 +6,7 @@ puppet. [Including this layer][building] gives you access to a Python
 class called Bigtop, which contains various useful tools, including an
 automatically run install routine.
 
-# Usage
+## Usage
 
 To create a charm using this base layer, first you must include it in
 your `layer.yaml` file:
@@ -24,9 +24,9 @@ sequence, like so:
 from charms.layer.apache_bigtop_base import Bigtop
 
 # Setup arguments to pass to .render_site_yaml
-hosts = {'myservice': <host>}
-roles = ['myservice-worker', 'myservice-client']
-override = {'myservice::somevalue': <somevalue>, ...}
+hosts = {'some_bigtop_service': <host>}
+roles = ['some_bigtop_service_nodetype0', 'some_bigtop_service_nodetype1']
+override = {'some_bigtop_service::somekey': <somevalue>, ...}
 
 # Trigger a puppet run
 bigtop = Bigtop()
@@ -36,27 +36,29 @@ bigtop.trigger_puppet()
 
 This tells Bigtop to run puppet and install your service.
 
-Bigtop can either infer which services you wish to install by
-inspecting the "hosts" that you pass to .render_site_yaml, or it can
-install the specific services that you name in "roles".
+How does Bigtop know what to install? You tell it what to install by
+passing a list of "roles" to .render_site_yaml. You may wish to
+consult [this list of valid
+roles](https://github.com/apache/bigtop/blob/master/bigtop-deploy/puppet/manifests/cluster.pp)
+to see what is available.
 
-Of course, Bigtop needs to know how to deploy your service!
+*Note*: Bigtop is also able to generate a list of roles from a
+"component". The Bigtop class is theoretically able to infer
+components from the "hosts" dict that you pass to
+.render_site_yaml. As of this writing, this codepath is not well
+tested, however, so you may want to specify roles explicitly. [List of
+valid
+components](https://github.com/apache/bigtop/blob/master/bigtop-deploy/puppet/hieradata/site.yaml)
 
-  * [List of "components" that can be inferred from hosts](https://github.com/apache/bigtop/blob/master/bigtop-deploy/puppet/hieradata/site.yaml)
-  * [List of roles](https://github.com/apache/bigtop/blob/master/bigtop-deploy/puppet/manifests/cluster.pp)
-
-# Reactive states
+## Reactive states
 
 This layer will set the following states:
 
-  * **`apache-bigtop-base.puppet_queued`** This indicates that puppet
-      has been queued. The state will get removed fairly quickly, as
-      the layer uses this state to trigger a puppet run.
   * **`bigtop.available`** This state is set after Bigtop.install has
       been run. At this point, you are free to invoke
       Bigtop.render_site_yaml.
 
-# Layer configuration
+## Layer configuration
 
 Bigtop actually takes care of most of the configuration details for
 you. You can specify overrides if needed, either in code, or in your
@@ -68,6 +70,17 @@ find important hosts, by passing a dict of "hosts" to
 Bigtop.render_site_yaml. You can use tools like the leadership layer
 to populate your hosts.
 
-# Actions
+## Actions
 
 As of this writing, this layer does not define any actions.
+
+## Contact Information
+
+- <bigdata@lists.ubuntu.com>
+
+## Help
+
+- [Juju mailing list](https://lists.ubuntu.com/mailman/listinfo/juju)
+- [Juju community](https://jujucharms.com/community)
+
+
