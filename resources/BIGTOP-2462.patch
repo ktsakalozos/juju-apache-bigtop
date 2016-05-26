@@ -1,18 +1,31 @@
-diff -ruN bigtop-orig/bigtop-deploy/puppet/modules/spark/manifests/init.pp bigtop/bigtop-deploy/puppet/modules/spark/manifests/init.pp
---- bigtop-orig/bigtop-deploy/puppet/modules/spark/manifests/init.pp	2016-05-23 12:41:14.699500039 +0300
-+++ bigtop/bigtop-deploy/puppet/modules/spark/manifests/init.pp	2016-05-16 17:11:56.293721700 +0300
-@@ -143,6 +143,8 @@
+From 55df74e160b88e3df4c41f01fe924a209341a5e3 Mon Sep 17 00:00:00 2001
+From: Cory Johns <johnsca@gmail.com>
+Date: Thu, 26 May 2016 16:56:55 -0400
+Subject: [PATCH] BIGTOP-2462: Make Spark events and history logs directory
+ configurable
+
+---
+ bigtop-deploy/puppet/modules/spark/manifests/init.pp             | 2 ++
+ bigtop-deploy/puppet/modules/spark/templates/spark-defaults.conf | 4 ++--
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/bigtop-deploy/puppet/modules/spark/manifests/init.pp b/bigtop-deploy/puppet/modules/spark/manifests/init.pp
+index ee42821..f4cde4f 100644
+--- a/bigtop-deploy/puppet/modules/spark/manifests/init.pp
++++ b/bigtop-deploy/puppet/modules/spark/manifests/init.pp
+@@ -143,6 +143,8 @@ class spark {
        $worker_ui_port = 8081,
        $history_ui_port = 18080,
        $use_yarn_shuffle_service = false,
-+      $event_log_dir = 'hdfs:///var/log/spark/apps',
-+      $history_log_dir = 'hdfs:///var/log/spark/apps',
++      $event_log_dir = hiera('bigtop::spark_event_log_dir', 'hdfs:///var/log/spark/apps'),
++      $history_log_dir = hiera('bigtop::spark_history_log_dir', 'hdfs:///var/log/spark/apps'),
    ) {
  
      package { 'spark-core':
-diff -ruN bigtop-orig/bigtop-deploy/puppet/modules/spark/templates/spark-defaults.conf bigtop/bigtop-deploy/puppet/modules/spark/templates/spark-defaults.conf
---- bigtop-orig/bigtop-deploy/puppet/modules/spark/templates/spark-defaults.conf	2016-05-23 12:41:14.699500039 +0300
-+++ bigtop/bigtop-deploy/puppet/modules/spark/templates/spark-defaults.conf	2016-05-16 17:07:20.426140725 +0300
+diff --git a/bigtop-deploy/puppet/modules/spark/templates/spark-defaults.conf b/bigtop-deploy/puppet/modules/spark/templates/spark-defaults.conf
+index bdb9e56..30946b3 100644
+--- a/bigtop-deploy/puppet/modules/spark/templates/spark-defaults.conf
++++ b/bigtop-deploy/puppet/modules/spark/templates/spark-defaults.conf
 @@ -15,8 +15,8 @@
  
  spark.master <%= @master_url %>
@@ -24,3 +37,6 @@ diff -ruN bigtop-orig/bigtop-deploy/puppet/modules/spark/templates/spark-default
  spark.yarn.historyServer.address <%= @master_host %>:<%= @history_ui_port %>
  spark.history.ui.port <%= @history_ui_port %>
  spark.shuffle.service.enabled <%= @use_yarn_shuffle_service %>
+-- 
+1.9.1
+
