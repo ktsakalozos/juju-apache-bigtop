@@ -1,0 +1,40 @@
+From 1c5ddd6f4a75e5350c376a60e8fb07b6d7ed2395 Mon Sep 17 00:00:00 2001
+From: Cory Johns <johnsca@gmail.com>
+Date: Thu, 26 May 2016 15:34:49 -0400
+Subject: [PATCH] BIGTOP-2458: Add option to disable IP hostname checking for
+ DataNode registration
+
+---
+ bigtop-deploy/puppet/modules/hadoop/manifests/init.pp       | 1 +
+ bigtop-deploy/puppet/modules/hadoop/templates/hdfs-site.xml | 5 +++++
+ 2 files changed, 6 insertions(+)
+
+diff --git a/bigtop-deploy/puppet/modules/hadoop/manifests/init.pp b/bigtop-deploy/puppet/modules/hadoop/manifests/init.pp
+index 90c9505..765acc1 100644
+--- a/bigtop-deploy/puppet/modules/hadoop/manifests/init.pp
++++ b/bigtop-deploy/puppet/modules/hadoop/manifests/init.pp
+@@ -228,6 +228,7 @@ class hadoop ($hadoop_security_authentication = "simple",
+       $hadoop_http_authentication_signature_secret_file = "/etc/hadoop/conf/hadoop-http-authentication-signature-secret",
+       $hadoop_http_authentication_cookie_domain = regsubst($fqdn, "^[^\\.]+\\.", ""),
+       $generate_secrets = $hadoop::generate_secrets,
++      $namenode_datanode_registration_ip_hostname_check = hiera("bigtop::hadoop_ip_hostname_check", true),
+   ) inherits hadoop {
+ 
+     $sshfence_keydir  = "$hadoop_ha_sshfence_user_home/.ssh"
+diff --git a/bigtop-deploy/puppet/modules/hadoop/templates/hdfs-site.xml b/bigtop-deploy/puppet/modules/hadoop/templates/hdfs-site.xml
+index 328cf6f..9dce36a 100644
+--- a/bigtop-deploy/puppet/modules/hadoop/templates/hdfs-site.xml
++++ b/bigtop-deploy/puppet/modules/hadoop/templates/hdfs-site.xml
+@@ -297,4 +297,9 @@
+ 
+ <%   end -%>
+ <% end -%>
++
++  <property>
++    <name>dfs.namenode.datanode.registration.ip-hostname-check</name>
++    <value><%= @namenode_datanode_registration_ip_hostname_check %></value>
++  </property>
+ </configuration>
+-- 
+1.9.1
+
