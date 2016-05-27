@@ -3,8 +3,8 @@
 This is the base layer for charms that wish to take advantage of
 Apache's Bigtop framework for configuring and deploying services via
 puppet. [Including this layer][building] gives you access to a Python
-class called Bigtop, which contains various useful tools, including an
-automatically run install routine.
+class called Bigtop, which contains, among other things, tools for
+triggering a puppet run.
 
 ## Usage
 
@@ -18,7 +18,9 @@ includes: ['layer:apache-bigtop-base']
 This will fetch the layer from [interfaces.juju.solutions][] and
 incorporate it into your charm. To use the Bigtop class, import it,
 then call its .render_site_yaml and .trigger_puppet routines in
-sequence, like so:
+sequence, like so (you might notice that Bigtop also has an .install
+routine -- this is run automatically in the reactive handlers of this
+layer; you don't need to call it yourself):
 
 ```python
 from charms.layer.apache_bigtop_base import Bigtop
@@ -45,7 +47,7 @@ to see what is available.
 *Note*: Bigtop is also able to generate a list of roles from a
 "component". The Bigtop class is theoretically able to infer
 components from the "hosts" dict that you pass to
-.render_site_yaml. As of this writing, this codepath is not well
+.render_site_yaml. As of this writing, this code path is not well
 tested, however, so you may want to specify roles explicitly. [List of
 valid
 components](https://github.com/apache/bigtop/blob/master/bigtop-deploy/puppet/hieradata/site.yaml)
@@ -67,8 +69,10 @@ Bigtop.render_site_yaml.
 
 Depending on your service, you'll also need to tell Bigtop where to
 find important hosts, by passing a dict of "hosts" to
-Bigtop.render_site_yaml. You can use tools like the leadership layer
-to populate your hosts.
+Bigtop.render_site_yaml.
+
+The leadership layer may come in handy when it comes to populating
+that hosts dict.
 
 ## Actions
 
@@ -82,5 +86,3 @@ As of this writing, this layer does not define any actions.
 
 - [Juju mailing list](https://lists.ubuntu.com/mailman/listinfo/juju)
 - [Juju community](https://jujucharms.com/community)
-
-
