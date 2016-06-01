@@ -141,8 +141,8 @@ class Bigtop(object):
             'bigtop::bigtop_repo_uri': bigtop_apt,
             'bigtop::jdk_preinstalled': True,
             'hadoop::hadoop_storage_dirs': ['/data/1', '/data/2'],
-            'bigtop::yarn_nodemanager_vmem_check': False,
-            'bigtop::hadoop_ip_hostname_check': hostname_check,
+            'hadoop::common_yarn::yarn_nodemanager_vmem_check_enabled': False,
+            'hadoop::common_hdfs::namenode_datanode_registration_ip_hostname_check': hostname_check,
         })
 
         # update based on configuration type (roles vs components)
