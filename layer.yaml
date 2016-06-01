@@ -55,11 +55,6 @@ defines:
       (This really should be a config option and not a layer option.)
     type: string
 
-  packages:
-    description: >
-      A list of apt packages to be installed during setup.
-    type: array
-    items: {type: string}
   groups:
     description: >
       A list of system groups to be created during setup.
