@@ -1,0 +1,27 @@
+From 299e4d0a6431a48668e6eda2ecd1d9fbb4bca205 Mon Sep 17 00:00:00 2001
+From: Kevin W Monroe <kevin.monroe@canonical.com>
+Date: Mon, 23 May 2016 17:52:35 +0000
+Subject: [PATCH] BIGTOP-2453: add mapred req to nodemanager class
+
+A standalone nodemanager role will fail to install and start because it
+requires /etc/hadoop/conf/core-site.xml and a mapred shuffle class.
+Include common_mapred_app in the nodemanager class to fix both of these.
+---
+ bigtop-deploy/puppet/modules/hadoop/manifests/init.pp | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/bigtop-deploy/puppet/modules/hadoop/manifests/init.pp b/bigtop-deploy/puppet/modules/hadoop/manifests/init.pp
+index 3631832..26cd4f5 100644
+--- a/bigtop-deploy/puppet/modules/hadoop/manifests/init.pp
++++ b/bigtop-deploy/puppet/modules/hadoop/manifests/init.pp
+@@ -826,6 +826,7 @@ class hadoop ($hadoop_security_authentication = "simple",
+ 
+ 
+   class nodemanager {
++    include common_mapred_app
+     include common_yarn
+ 
+     package { "hadoop-yarn-nodemanager":
+-- 
+1.9.1
+

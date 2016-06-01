@@ -1,0 +1,24 @@
+From daf4d10d3b9198c058136ca2955f4589ac9203ee Mon Sep 17 00:00:00 2001
+From: Kevin W Monroe <kevin.monroe@canonical.com>
+Date: Mon, 23 May 2016 18:40:51 +0000
+Subject: [PATCH] BIGTOP-2454: add common_yarn to client class
+
+---
+ bigtop-deploy/puppet/modules/hadoop/manifests/init.pp | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/bigtop-deploy/puppet/modules/hadoop/manifests/init.pp b/bigtop-deploy/puppet/modules/hadoop/manifests/init.pp
+index 3631832..6920eed 100644
+--- a/bigtop-deploy/puppet/modules/hadoop/manifests/init.pp
++++ b/bigtop-deploy/puppet/modules/hadoop/manifests/init.pp
+@@ -867,6 +867,7 @@ class hadoop ($hadoop_security_authentication = "simple",
+ 
+   class client {
+       include common_mapred_app
++      include common_yarn
+ 
+       $hadoop_client_packages = $operatingsystem ? {
+         /(OracleLinux|CentOS|RedHat|Fedora)/  => [ "hadoop-doc", "hadoop-hdfs-fuse", "hadoop-client", "hadoop-libhdfs", "hadoop-debuginfo" ],
+-- 
+1.9.1
+

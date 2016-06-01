@@ -2,6 +2,7 @@ import os
 import socket
 import subprocess
 import yaml
+from glob import glob
 
 from path import Path
 
@@ -63,33 +64,10 @@ class Bigtop(object):
         utils.run_as('root', 'puppet', 'module', 'install', 'puppetlabs-apt')
 
     def apply_patches(self):
-        charm_dir = hookenv.charm_dir()
-        # BIGTOP-2442: rm does not need Hdfs_init and will fail
-        rm_patch = Path(charm_dir) / 'resources/patch1_rm_init_hdfs.patch'
-        # BIGTOP-2453: nm role needs core-site.xml and mapred shuffle classes.
-        nm_patch = Path(charm_dir) / 'resources/patch2_nm_core-site.patch'
-        # BIGTOP-2454: client role needs common_yarn for yarn-site.xml
-        client_patch = Path(charm_dir) / 'resources/patch3_client_role_use_common_yarn.patch'
-        # BIGTOP-2454: support preinstalled java env since we use a java relation
-        java_patch = Path(charm_dir) / 'resources/patch4_site_jdk_preinstalled.patch'
-        # BIGTOP-????: enable ip-hostname-check and vmem template options
-        tmpl_patch = Path(charm_dir) / 'resources/patch5_enable_template_config.patch'
-        # TODO JIRA KJackal: we need configurable Spark log dirs to remove
-        # dependency on HDFS
-        spark_logs_patch = Path(charm_dir) / 'resources/patch5_spark_log_dirs.patch'
-        with chdir("{}".format(self.bigtop_base)):
-            # rm patch goes first
-            utils.run_as('root', 'patch', '-p1', '-s', '-i', rm_patch)
-            # nm patch (not strictly necessary since nm includes mapred-app role)
-            utils.run_as('root', 'patch', '-p1', '-s', '-i', nm_patch)
-            # client patch goes next
-            utils.run_as('root', 'patch', '-p1', '-s', '-i', client_patch)
-            # patch site.pp to skip jdk install
-            utils.run_as('root', 'patch', '-p1', '-s', '-i', java_patch)
-            # patch to enable template config options
-            utils.run_as('root', 'patch', '-p1', '-s', '-i', tmpl_patch)
-            # apply configurable spark logs patch
-            utils.run_as('root', 'patch', '-p1', '-s', '-i', spark_logs_patch)
+        charm_dir = Path(hookenv.charm_dir())
+        for patch in sorted(glob('resources/*.patch')):
+            with chdir("{}".format(self.bigtop_base)):
+                utils.run_as('root', 'patch', '-p1', '-s', '-i', charm_dir / patch)
 
     def render_hiera_yaml(self):
         """
