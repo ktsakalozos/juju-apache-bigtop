@@ -1,0 +1,48 @@
+From 00e5c42991816af0bc194fda4c0d90e179b868e4 Mon Sep 17 00:00:00 2001
+From: Konstantinos Tsakalozos <konstantinos.tsakalozos@canonical.com>
+Date: Fri, 3 Jun 2016 10:22:46 +0300
+Subject: [PATCH] BIGTOP-2466 Strip HBase deployment from auxiliary services
+
+---
+ bigtop-deploy/puppet/hieradata/bigtop/cluster.yaml          | 1 +
+ bigtop-deploy/puppet/modules/hadoop_hbase/manifests/init.pp | 8 ++++++--
+ 2 files changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/bigtop-deploy/puppet/hieradata/bigtop/cluster.yaml b/bigtop-deploy/puppet/hieradata/bigtop/cluster.yaml
+index 71e01c7..9887e3b 100644
+--- a/bigtop-deploy/puppet/hieradata/bigtop/cluster.yaml
++++ b/bigtop-deploy/puppet/hieradata/bigtop/cluster.yaml
+@@ -115,6 +115,7 @@ hadoop_hbase::common_config::rootdir: "%{hiera('bigtop::hadoop_namenode_uri')}%{
+ hadoop_hbase::common_config::zookeeper_quorum: "%{hiera('bigtop::hadoop_head_node')}"
+ hadoop_hbase::common_config::kerberos_realm: "%{hiera('kerberos::site::realm')}"
+ hadoop_hbase::client::thrift: true
++hadoop_hbase::deploy::auxiliary: true
+ 
+ solr::server::root_url: "%{hiera('bigtop::hadoop_namenode_uri')}"
+ solr::server::zk: "%{hiera('hadoop::zk')}"
+diff --git a/bigtop-deploy/puppet/modules/hadoop_hbase/manifests/init.pp b/bigtop-deploy/puppet/modules/hadoop_hbase/manifests/init.pp
+index 1527260..a168e34 100644
+--- a/bigtop-deploy/puppet/modules/hadoop_hbase/manifests/init.pp
++++ b/bigtop-deploy/puppet/modules/hadoop_hbase/manifests/init.pp
+@@ -15,15 +15,19 @@
+ 
+ class hadoop_hbase {
+ 
+-  class deploy ($roles) {
++  class deploy ($roles, $auxiliary = true) {
+     if ("hbase-server" in $roles) {
+       include hadoop_hbase::server
+     }
+ 
+     if ("hbase-master" in $roles) {
++      if ($auxiliary == true) {
++        include hadoop_zookeeper::server
++      }
++
++      include hadoop::common_hdfs
+       include hadoop::init_hdfs
+       include hadoop_hbase::master
+-      include hadoop_zookeeper::server
+       Class['Hadoop::Init_hdfs'] -> Class['Hadoop_hbase::Master']
+     }
+ 
