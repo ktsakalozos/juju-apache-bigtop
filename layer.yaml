@@ -1,4 +1,7 @@
-includes: ['layer:basic', 'layer:puppet', 'interface:java']
+includes:
+  - 'layer:basic'
+  - 'layer:puppet'
+  - 'interface:java'
 options:
   basic:
     packages:

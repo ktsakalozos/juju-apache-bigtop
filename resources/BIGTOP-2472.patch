@@ -1,0 +1,22 @@
+From 4177d2ed8ed1d4162a47fbeb28d53b3516eb6b90 Mon Sep 17 00:00:00 2001
+From: Kevin W Monroe <kevin.monroe@canonical.com>
+Date: Mon, 6 Jun 2016 15:25:43 -0500
+Subject: [PATCH] BIGTOP-2472: zeppelin puppet module needs to expose
+ ZEPPELIN_WAR_TEMPDIR
+
+---
+ bigtop-deploy/puppet/modules/zeppelin/templates/zeppelin-env.sh | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/bigtop-deploy/puppet/modules/zeppelin/templates/zeppelin-env.sh b/bigtop-deploy/puppet/modules/zeppelin/templates/zeppelin-env.sh
+index 8095f01..ebcfc06 100644
+--- a/bigtop-deploy/puppet/modules/zeppelin/templates/zeppelin-env.sh
++++ b/bigtop-deploy/puppet/modules/zeppelin/templates/zeppelin-env.sh
+@@ -18,6 +18,7 @@ export ZEPPELIN_WEBSOCKET_PORT=<%= @web_socket_port %>
+ export ZEPPELIN_CONF_DIR=/etc/zeppelin/conf
+ export ZEPPELIN_LOG_DIR=/var/log/zeppelin
+ export ZEPPELIN_PID_DIR=/var/run/zeppelin
++export ZEPPELIN_WAR_TEMPDIR=/var/run/zeppelin/webapps
+ export ZEPPELIN_NOTEBOOK_DIR=/var/lib/zeppelin/notebook
+ export MASTER=<%= @spark_master_url %>
+ export SPARK_HOME=/usr/lib/spark
