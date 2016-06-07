@@ -1,0 +1,22 @@
+From 5f24c4b51e467f16cdd4bb089ec89ac156f45c73 Mon Sep 17 00:00:00 2001
+From: Konstantinos Tsakalozos <konstantinos.tsakalozos@canonical.com>
+Date: Tue, 7 Jun 2016 12:42:58 +0300
+Subject: [PATCH] BIGTOP-2473 Include hadoop to Mahout puppet script
+
+---
+ bigtop-deploy/puppet/modules/mahout/manifests/init.pp | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/bigtop-deploy/puppet/modules/mahout/manifests/init.pp b/bigtop-deploy/puppet/modules/mahout/manifests/init.pp
+index 0c55a9b..cfb08df 100644
+--- a/bigtop-deploy/puppet/modules/mahout/manifests/init.pp
++++ b/bigtop-deploy/puppet/modules/mahout/manifests/init.pp
+@@ -22,6 +22,8 @@
+   }
+ 
+   class client {
++    include hadoop::common
++
+     package { "mahout":
+       ensure => latest,
+       require => Package["hadoop"],
