@@ -1,0 +1,29 @@
+From f1f8ed31d5c4247d02ded6bb3f39af731cd928f4 Mon Sep 17 00:00:00 2001
+From: Kevin W Monroe <kevin.monroe@canonical.com>
+Date: Wed, 8 Jun 2016 15:18:45 +0000
+Subject: [PATCH] BIGTOP-2475: hadoop_pig puppet module needs hadoop::common
+
+---
+ bigtop-deploy/puppet/modules/hadoop_pig/manifests/init.pp | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/bigtop-deploy/puppet/modules/hadoop_pig/manifests/init.pp b/bigtop-deploy/puppet/modules/hadoop_pig/manifests/init.pp
+index 0a09dec..9582ffd 100644
+--- a/bigtop-deploy/puppet/modules/hadoop_pig/manifests/init.pp
++++ b/bigtop-deploy/puppet/modules/hadoop_pig/manifests/init.pp
+@@ -22,11 +22,13 @@
+   }
+ 
+   class client {
++    include hadoop::common
++
+     package { "pig":
+       ensure => latest,
+       require => Package["hadoop"],
+-    } 
+- 
++    }
++
+     file { "/etc/pig/conf/pig.properties":
+       content => template('hadoop_pig/pig.properties'),
+       require => Package["pig"],
