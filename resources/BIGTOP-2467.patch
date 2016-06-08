@@ -1,35 +1,30 @@
-From f6febea6a9b2658d5603e7dd91d03f8e2860867e Mon Sep 17 00:00:00 2001
+From 6dd1e673ca5577fa8e4c41dfc8542301c591af36 Mon Sep 17 00:00:00 2001
 From: Pete Vander Giessen <petevg@gmail.com>
-Date: Thu, 2 Jun 2016 17:13:22 -0400
-Subject: [PATCH] Fixed an issue with server ids for quorum.
+Date: Wed, 8 Jun 2016 16:02:15 -0400
+Subject: [PATCH] BIGTOP-2467 Zookeeper Puppet script does not setup Zookeeper
+ node ids correctly
 
-Zookeeper appears to require two things of the list of peers in the
-config:
+Zookeeper wants its peer ids to be consistent across nodes, but the
+current puppet script auto-generates ids for nodes, based on their index
+in a list. This breaks Zookeeper quorum.
 
-1) On any given node, that node should appear first in the list of
-peers.
-2) Peer ids should be consistent across nodes.
-
-The current puppet script, which basically auto-generates ids for nodes,
-so that the first node in the list is always node 0, breaks this. This
-patch fixes the issue by requiring that puppet take a list comprising
-ids and ip addresses, rather than just a list of ip addresses.
+We fix the issue by requiring that puppet take a list comprising
+explicit ids and ip addresses, rather than just a list of ip addresses.
 ---
- bigtop-deploy/puppet/hieradata/bigtop/cluster.yaml              | 3 +--
+ bigtop-deploy/puppet/hieradata/bigtop/cluster.yaml              | 2 +-
  bigtop-deploy/puppet/modules/hadoop_zookeeper/templates/zoo.cfg | 4 ++--
- 2 files changed, 3 insertions(+), 4 deletions(-)
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/bigtop-deploy/puppet/hieradata/bigtop/cluster.yaml b/bigtop-deploy/puppet/hieradata/bigtop/cluster.yaml
-index f592f64..5d71379 100644
+index f592f64..45366e3 100644
 --- a/bigtop-deploy/puppet/hieradata/bigtop/cluster.yaml
 +++ b/bigtop-deploy/puppet/hieradata/bigtop/cluster.yaml
-@@ -146,8 +146,7 @@ qfs::common::metaserver_client_port: "20000"
- qfs::common::chunkserver_client_port: "22000"
+@@ -147,7 +147,7 @@ qfs::common::chunkserver_client_port: "22000"
  
  hadoop_zookeeper::server::myid: "0"
--hadoop_zookeeper::server::ensemble:
+ hadoop_zookeeper::server::ensemble:
 -  - "%{hiera('bigtop::hadoop_head_node')}:2888:3888"
-+hadoop_zookeeper::server::ensemble: []
++  - ["0", "%{hiera('bigtop::hadoop_head_node')}:2888:3888"]
  hadoop_zookeeper::server::kerberos_realm: "%{hiera('kerberos::site::realm')}"
  
  # those are only here because they were present as extlookup keys previously
