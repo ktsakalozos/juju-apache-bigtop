@@ -9,7 +9,7 @@ from jujubigdata import utils
 
 
 @when('puppet.available')
-@when_none('java.ready', 'hadoop-plugin.java.ready')
+@when_none('java.ready', 'hadoop-plugin.java.ready', 'hadoop-rest.joined')
 def missing_java():
     if any_states('java.joined', 'hadoop-plugin.joined'):
         hookenv.status_set('waiting', 'Waiting on Java')
