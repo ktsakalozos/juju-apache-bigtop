@@ -1,12 +1,15 @@
 includes:
   - 'layer:basic'
-  - 'layer:puppet'
+  - 'layer:puppet-agent'
   - 'interface:java'
 options:
   basic:
     packages:
       - dphys-swapfile
       - unzip
+  puppet-agent:
+    puppet-version: '3'
+    silent: True
 defines:
   bigtop_component_list:
     # XXX this should be a proper array of strings
