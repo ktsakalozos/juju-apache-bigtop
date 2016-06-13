@@ -52,6 +52,14 @@ defines:
     default: 'bigtop-deploy/puppet/hieradata/site.yaml'
     description: 'Hiera Bigtop config'
 
+  bigtop_smoketest_components:
+    type: string
+    default: ''
+    description: |
+        Space separated list of bigtop components to exercise during the
+        smoke-test action. Availalbe components can be found at:
+        https://github.com/apache/bigtop/tree/master/bigtop-tests/smoke-tests
+
   hadoop_version:
     description: >
       Version of the Hadoop libraries that should be installed.
