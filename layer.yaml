@@ -53,10 +53,10 @@ defines:
     description: 'Hiera Bigtop config'
 
   bigtop_smoketest_components:
-    type: string
-    default: ''
+    type: array
+    items: {type: string}
     description: |
-        Space separated list of bigtop components to exercise during the
+        A list of bigtop components to exercise during the
         smoke-test action. Availalbe components can be found at:
         https://github.com/apache/bigtop/tree/master/bigtop-tests/smoke-tests
 

@@ -17,7 +17,8 @@
 
 import sys
 
-from charmhelpers.core import chdir, hookenv
+from charmhelpers.core import hookenv
+from charmhelpers.core.host import chdir, chownr
 from charms import layer
 from charms.layer.apache_bigtop_base import Bigtop
 from charms.reactive import is_state
@@ -35,7 +36,9 @@ if not smoke_components:
     sys.exit()
 
 # Within the unpacked Bigtop release directory, run the existing component smoker
-# with Bigtop's gradle wrapper script
+# with Bigtop's gradle wrapper script. Ensure the base dir is owned by ubuntu
+# so we can create a .gradle subdir.
+chownr(bigtop.bigtop_base, 'ubuntu', 'ubuntu', chowntopdir=True)
 with chdir(bigtop.bigtop_base):
     for component in smoke_components.split():
         hookenv.log('Running smoke test: {}'.format(component))
