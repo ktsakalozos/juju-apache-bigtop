@@ -16,6 +16,7 @@
 # limitations under the License.
 
 import sys
+sys.path.append('lib')
 
 from charmhelpers.core import hookenv
 from charmhelpers.core.host import chdir, chownr
@@ -40,9 +41,9 @@ if not smoke_components:
 # so we can create a .gradle subdir.
 chownr(bigtop.bigtop_base, 'ubuntu', 'ubuntu', chowntopdir=True)
 with chdir(bigtop.bigtop_base):
-    for component in smoke_components.split():
+    for component in smoke_components:
         hookenv.log('Running smoke test: {}'.format(component))
-        run_as('ubuntu', './gradlew', 'bigtop-tests:smoke-tests:{0}:test -Psmoke.tests --info'.
-               format(component))
+        run_as('ubuntu', './gradlew', 'bigtop-tests:smoke-tests:{0}:test'.format(component),
+               '-Psmoke.tests', '--info')
 
 hookenv.action_set({'outcome': 'success'})
