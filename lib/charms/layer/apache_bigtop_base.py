@@ -10,8 +10,8 @@ from charms import layer
 from charmhelpers.fetch.archiveurl import ArchiveUrlFetchHandler
 from jujubigdata import utils
 from charmhelpers.core import hookenv, unitdata
-from charmhelpers.core.host import chdir
-from charms.reactive import when, set_state, remove_state
+from charmhelpers.core.host import chdir, chownr
+from charms.reactive import when, set_state, remove_state, is_state
 
 
 class Bigtop(object):
@@ -264,6 +264,40 @@ class Bigtop(object):
             'vendor': 'bigtop',
             'hadoop': get_hadoop_version(),
         }
+
+    def run_smoke_tests(self, smoke_components=None, smoke_configs=None):
+        """
+        Run the Bigtop smoke tests for given components using the gradle
+        wrapper script.
+
+        :param list smoke_components: Bigtop components to smoke test
+        :param list configs: Config files sourced prior to running tests
+
+        XXX: deal with the given config files (currently ignored)
+        """
+        if not is_state('bigtop.available'):
+            hookenv.log('Bigtop is not ready to run smoke tests')
+            return None
+        if not smoke_components:
+            hookenv.log('Missing Bigtop smoke test component list')
+            return None
+
+        # Ensure the base dir is owned by ubuntu so we can create a .gradle dir.
+        chownr(self.bigtop_base, 'ubuntu', 'ubuntu', chowntopdir=True)
+
+        # Bigtop can run multiple smoke tests at once; construct the right args.
+        comp_args = ['bigtop-tests:smoke-tests:%s:test' % c for c in smoke_components]
+        gradlew_args = ['-Psmoke.tests', '--info'] + comp_args
+
+        hookenv.log('Running Bigtop smoke tests with: %s' % gradlew_args)
+        with chdir(self.bigtop_base):
+            try:
+                utils.run_as('ubuntu', './gradlew', *gradlew_args,
+                             env={'TERM': 'dumb'})
+                smoke_out = 'success'
+            except subprocess.CalledProcessError as e:
+                smoke_out = e.output
+        return smoke_out
 
 
 def get_hadoop_version():

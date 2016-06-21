@@ -15,35 +15,40 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+################################################################################
+# Bigtop smoke test template
+#
+# This provides basic Bigtop smoke test capabilities. This should be modified
+# as needed for individual charms. Specifically, you should determine what
+# outcome is considered "succesful" and what warrants a "failure", and set
+# the action outcome/output as appropriate.
+################################################################################
 import sys
 sys.path.append('lib')
 
 from charmhelpers.core import hookenv
-from charmhelpers.core.host import chdir, chownr
 from charms import layer
 from charms.layer.apache_bigtop_base import Bigtop
 from charms.reactive import is_state
-from jujubigdata.utils import run_as
-
-if not is_state('bigtop.available'):
-    hookenv.action_fail('Bigtop is not yet ready')
 
 
-bigtop = Bigtop()
-cfg = layer.options('apache-bigtop-base')
-smoke_components = cfg.get('bigtop_smoketest_components')
-if not smoke_components:
-    hookenv.action_fail('No bigtop_smoketest_components found for this charm')
+def fail(msg, output):
+    hookenv.action_set({'output': output})
+    hookenv.action_fail(msg)
     sys.exit()
 
-# Within the unpacked Bigtop release directory, run the existing component smoker
-# with Bigtop's gradle wrapper script. Ensure the base dir is owned by ubuntu
-# so we can create a .gradle subdir.
-chownr(bigtop.bigtop_base, 'ubuntu', 'ubuntu', chowntopdir=True)
-with chdir(bigtop.bigtop_base):
-    for component in smoke_components:
-        hookenv.log('Running smoke test: {}'.format(component))
-        run_as('ubuntu', './gradlew', 'bigtop-tests:smoke-tests:{0}:test'.format(component),
-               '-Psmoke.tests', '--info')
+if not is_state('bigtop.available'):
+    fail('Bigtop is not yet ready')
 
-hookenv.action_set({'outcome': 'success'})
+cfg = layer.options('apache-bigtop-base')
+smoke_components = cfg.get('bigtop_smoketest_components')
+smoke_configs = cfg.get('bigtop_smoketest_configs')
+if not smoke_components:
+    fail('No bigtop_smoketest_components found for this charm')
+
+bigtop = Bigtop()
+result = bigtop.run_smoke_tests(smoke_components, smoke_configs)
+if result == 'success':
+    hookenv.action_set({'outcome': result})
+else:
+    fail('failed smoke testing: %s' % smoke_components, result)
