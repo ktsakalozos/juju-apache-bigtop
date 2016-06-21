@@ -1,8 +1,8 @@
 From 6dd1e673ca5577fa8e4c41dfc8542301c591af36 Mon Sep 17 00:00:00 2001
 From: Pete Vander Giessen <petevg@gmail.com>
 Date: Wed, 8 Jun 2016 16:02:15 -0400
-Subject: [PATCH] BIGTOP-2467 Zookeeper Puppet script does not setup Zookeeper
- node ids correctly
+Subject: [PATCH 1/2] BIGTOP-2467 Zookeeper Puppet script does not setup
+ Zookeeper node ids correctly
 
 Zookeeper wants its peer ids to be consistent across nodes, but the
 current puppet script auto-generates ids for nodes, based on their index
@@ -43,6 +43,45 @@ index 69d98c4..b646e60 100644
  <% end %>
  # purge snapshots every day
  autopurge.purgeInterval=24
+-- 
+2.7.4
+
+
+From 0560313f10aac5ce7ea47e919edda03ea7a05319 Mon Sep 17 00:00:00 2001
+From: Pete Vander Giessen <petevg@gmail.com>
+Date: Tue, 21 Jun 2016 10:13:22 -0400
+Subject: [PATCH 2/2] Fixed some references to ensemble that I had missed on
+ the first pass.
+
+---
+ bigtop-deploy/puppet/modules/hadoop_zookeeper/manifests/init.pp | 2 +-
+ bigtop-deploy/puppet/modules/hadoop_zookeeper/tests/init.pp     | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/bigtop-deploy/puppet/modules/hadoop_zookeeper/manifests/init.pp b/bigtop-deploy/puppet/modules/hadoop_zookeeper/manifests/init.pp
+index 6965090..31a609e 100644
+--- a/bigtop-deploy/puppet/modules/hadoop_zookeeper/manifests/init.pp
++++ b/bigtop-deploy/puppet/modules/hadoop_zookeeper/manifests/init.pp
+@@ -61,7 +61,7 @@ class hadoop_zookeeper (
+   class server($myid,
+                 $port = "2181",
+                 $datadir = "/var/lib/zookeeper",
+-                $ensemble = ["localhost:2888:3888"],
++                $ensemble = [$myid, "localhost:2888:3888"],
+                 $kerberos_realm = $hadoop_zookeeper::kerberos_realm,
+   ) inherits hadoop_zookeeper {
+     include common
+diff --git a/bigtop-deploy/puppet/modules/hadoop_zookeeper/tests/init.pp b/bigtop-deploy/puppet/modules/hadoop_zookeeper/tests/init.pp
+index 0340f10..7158714 100644
+--- a/bigtop-deploy/puppet/modules/hadoop_zookeeper/tests/init.pp
++++ b/bigtop-deploy/puppet/modules/hadoop_zookeeper/tests/init.pp
+@@ -16,5 +16,5 @@
+ hadoop_zookeeper::client { "zoo visitor": }
+ hadoop_zookeeper::server { "test-oozie-server":
+   myid => "0",
+-  ensemble => ["foo:2888:3888", "bar:2888:3888", "baz:2888:3888"],
++  ensemble => [[0, "foo:2888:3888"], [1, "bar:2888:3888"], [2, "baz:2888:3888"]],
+ }
 -- 
 2.7.4
 
