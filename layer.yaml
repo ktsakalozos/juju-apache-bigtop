@@ -57,7 +57,7 @@ defines:
     items: {type: string}
     description: |
         A list of Bigtop components to exercise during the
-        smoke-test action. Availalbe components can be found at:
+        smoke-test action. Available components can be found at:
         https://github.com/apache/bigtop/tree/master/bigtop-tests/smoke-tests
 
   bigtop_smoketest_configs:
