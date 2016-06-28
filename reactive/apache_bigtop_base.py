@@ -12,9 +12,9 @@ from jujubigdata import utils
 @when_none('java.ready', 'hadoop-plugin.java.ready', 'hadoop-rest.joined')
 def missing_java():
     if any_states('java.joined', 'hadoop-plugin.joined'):
-        hookenv.status_set('waiting', 'Waiting on Java')
+        hookenv.status_set('waiting', 'waiting on java')
     else:
-        hookenv.status_set('blocked', 'Waiting on relation to Java')
+        hookenv.status_set('blocked', 'waiting on relation to java')
 
 
 @when('puppet.available')
@@ -22,15 +22,15 @@ def missing_java():
 @when_not('bigtop.available')
 def fetch_bigtop():
     try:
-        hookenv.status_set('maintenance', 'Installing Apache Bigtop base')
+        hookenv.status_set('maintenance', 'installing apache bigtop base')
         Bigtop().install()
-        hookenv.status_set('maintenance', 'Installing components')
+        hookenv.status_set('maintenance', 'apache bigtop base installed')
         set_state('bigtop.available')
     except UnhandledSource as e:
-        hookenv.status_set('blocked', 'Unable to fetch Bigtop: %s' % e)
+        hookenv.status_set('blocked', 'unable to fetch apache bigtop: %s' % e)
     except ChecksumError:
         hookenv.status_set('waiting',
-                           'Unable to fetch Bigtop: checksum error'
+                           'unable to fetch apache bigtop: checksum error'
                            ' (will retry)')
 
 
