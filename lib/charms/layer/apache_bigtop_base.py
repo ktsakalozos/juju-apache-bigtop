@@ -65,7 +65,7 @@ class Bigtop(object):
 
     def apply_patches(self):
         charm_dir = Path(hookenv.charm_dir())
-        for patch in sorted(glob('resources/*.patch')):
+        for patch in sorted(glob('resources/{}/*.patch'.format(self.bigtop_version))):
             with chdir("{}".format(self.bigtop_base)):
                 utils.run_as('root', 'patch', '-p1', '-s', '-i', charm_dir / patch)
 

@@ -1,0 +1,51 @@
+From ed70cf584a2b3091a2076e70d518daaada69da9e Mon Sep 17 00:00:00 2001
+From: Cory Johns <johnsca@gmail.com>
+Date: Thu, 26 May 2016 15:47:33 -0400
+Subject: [PATCH] BIGTOP-2459: Add option to disable vmem check for NodeManager
+
+---
+ bigtop-deploy/puppet/hieradata/bigtop/cluster.yaml          | 1 +
+ bigtop-deploy/puppet/modules/hadoop/manifests/init.pp       | 1 +
+ bigtop-deploy/puppet/modules/hadoop/templates/yarn-site.xml | 5 +++++
+ 3 files changed, 7 insertions(+)
+
+diff --git a/bigtop-deploy/puppet/hieradata/bigtop/cluster.yaml b/bigtop-deploy/puppet/hieradata/bigtop/cluster.yaml
+index f592f64..74e9383 100644
+--- a/bigtop-deploy/puppet/hieradata/bigtop/cluster.yaml
++++ b/bigtop-deploy/puppet/hieradata/bigtop/cluster.yaml
+@@ -102,6 +102,7 @@ hadoop::common_yarn::hadoop_ps_host: "%{hiera('bigtop::hadoop_head_node')}"
+ hadoop::common_yarn::hadoop_rm_host: "%{hiera('bigtop::hadoop_head_node')}"
+ # actually default but needed for hue::server::rm_port here
+ hadoop::common_yarn::hadoop_rm_port: "8032"
++hadoop::common_yarn::yarn_nodemanager_vmem_check_enabled: true
+ 
+ hadoop::common_mapred_app::jobtracker_host: "%{hiera('bigtop::hadoop_head_node')}"
+ hadoop::common_mapred_app::mapreduce_jobhistory_host: "%{hiera('bigtop::hadoop_head_node')}"
+diff --git a/bigtop-deploy/puppet/modules/hadoop/manifests/init.pp b/bigtop-deploy/puppet/modules/hadoop/manifests/init.pp
+index 90c9505..2d18619 100644
+--- a/bigtop-deploy/puppet/modules/hadoop/manifests/init.pp
++++ b/bigtop-deploy/puppet/modules/hadoop/manifests/init.pp
+@@ -151,6 +151,7 @@
+       $container_executor_min_user_id = "499",
+       $hadoop_security_authentication = $hadoop::hadoop_security_authentication,
+       $kerberos_realm = $hadoop::kerberos_realm,
++      $yarn_nodemanager_vmem_check_enabled,
+   ) inherits hadoop {
+ 
+     include common
+diff --git a/bigtop-deploy/puppet/modules/hadoop/templates/yarn-site.xml b/bigtop-deploy/puppet/modules/hadoop/templates/yarn-site.xml
+index 054ae65..12b3e56 100644
+--- a/bigtop-deploy/puppet/modules/hadoop/templates/yarn-site.xml
++++ b/bigtop-deploy/puppet/modules/hadoop/templates/yarn-site.xml
+@@ -175,6 +175,11 @@
+   </property>
+ 
+   <property>
++    <name>yarn.nodemanager.vmem-check-enabled</name>
++    <value><%= @yarn_nodemanager_vmem_check_enabled %></value>
++  </property>
++
++  <property>
+     <description>Classpath for typical applications.</description>
+      <name>yarn.application.classpath</name>
+      <value>
