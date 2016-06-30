@@ -19,8 +19,10 @@ defines:
 
   bigtop_version:
     type: string
-    default: 'bigtop-1.1.0'
-    description: 'Default version string of Bigtop release. Affects the location of Hiera bits and Puppet recipes'
+    default: '1.1.0'
+    description: |
+        Bigtop release version. Affects the location of Hiera bits, Puppet
+        recipes, and repository used for installing packages.
 
   bigtop_release_url:
     type: string
@@ -30,15 +32,13 @@ defines:
         This points to the official Apache Bigtop releases on of the ASF mirrors.
         The source code is needed in order to get access to project's Puppet recipes
 
-  bigtop_repo-x86_64:
+  bigtop_repo_url:
     type: string
-    default: 'http://bigtop-repos.s3.amazonaws.com/releases/1.1.0/ubuntu/trusty/x86_64'
-    description: URL to release apt repo for x86_64 platform
-
-  bigtop_repo-ppc64el:
-    type: string
-    default: 'http://bigtop-repos.s3.amazonaws.com/releases/1.1.0/ubuntu/vivid/ppc64el'
-    description: URL to release apt repo for ppc64el platform
+    default: 'http://bigtop-repos.s3.amazonaws.com/releases'
+    description: |
+        Base repo URL. The distro, series, architecture, and Bigtop version
+        will be appended to form the full URL to use for installing
+        Bigtop packages.
 
   bigtop_hiera_path:
     type: string

@@ -2,3 +2,6 @@ provides:
   java:
     interface: java
     scope: container
+series:
+  - trusty
+  - xenial
