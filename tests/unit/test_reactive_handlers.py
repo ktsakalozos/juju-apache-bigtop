@@ -47,9 +47,6 @@ class TestFetchBigtop(BigtopHarness):
         super(TestFetchBigtop, self).tearDown()
         self.bigtop_patcher.stop()
 
-
-
-
     def test_fetch_bigtop_success(self):
         fetch_bigtop()
         self.assertTrue(is_state('bigtop.available'))
@@ -86,7 +83,8 @@ class TestJavaHome(BigtopHarness):
     @mock.patch('apache_bigtop_base.RelationBase')
     def test_set_java_home(self, mock_relation_base, mock_utils):
         '''
-        
+        Verify that we attempt to call out to the system to set java home,
+        only when the data has changed.
 
         '''
         mock_java = mock.Mock()
