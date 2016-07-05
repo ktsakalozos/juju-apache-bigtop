@@ -1,0 +1,130 @@
+From 0e85954d2d3a04eb6135e3dac02e61fd0eecd841 Mon Sep 17 00:00:00 2001
+From: Konstantinos Tsakalozos <konstantinos.tsakalozos@canonical.com>
+Date: Fri, 1 Jul 2016 13:36:28 +0300
+Subject: [PATCH 1/1] BIGTOP-2490: Spark in HA when Zookeeper is available
+
+---
+ .../puppet/modules/spark/manifests/init.pp         | 16 ++++++++++--
+ .../modules/spark/templates/spark-defaults.ha.conf | 21 ++++++++++++++++
+ .../puppet/modules/spark/templates/spark-env.ha.sh | 29 ++++++++++++++++++++++
+ .../puppet/modules/spark/templates/spark-env.sh    |  1 +
+ 4 files changed, 65 insertions(+), 2 deletions(-)
+ create mode 100644 bigtop-deploy/puppet/modules/spark/templates/spark-defaults.ha.conf
+ create mode 100755 bigtop-deploy/puppet/modules/spark/templates/spark-env.ha.sh
+
+diff --git a/bigtop-deploy/puppet/modules/spark/manifests/init.pp b/bigtop-deploy/puppet/modules/spark/manifests/init.pp
+index f5a2d64..0fd0603 100644
+--- a/bigtop-deploy/puppet/modules/spark/manifests/init.pp
++++ b/bigtop-deploy/puppet/modules/spark/manifests/init.pp
+@@ -137,6 +137,7 @@ class spark {
+   class common(
+       $master_url = 'yarn',
+       $master_host = $fqdn,
++      $zookeeper_connection_string = undef,
+       $master_port = 7077,
+       $worker_port = 7078,
+       $master_ui_port = 8080,
+@@ -158,13 +159,24 @@ class spark {
+       ensure => latest,
+     }
+ 
++    if $zookeeper_connection_string {
++      $spark_daemon_java_opts = "\"-Dspark.deploy.recoveryMode=ZOOKEEPER -Dspark.deploy.zookeeper.url=${zookeeper_connection_string}\""
++      $spark_env = "spark/spark-env.ha.sh"
++      $spark_defaults = "spark/spark-defaults.ha.conf"
++    }
++    else {
++      $spark_daemon_java_opts = "\"-Dspark.deploy.recoveryMode=NONE\""
++      $spark_env = "spark/spark-env.sh"
++      $spark_defaults = "spark/spark-defaults.conf"
++    }
++
+     file { '/etc/spark/conf/spark-env.sh':
+-      content => template('spark/spark-env.sh'),
++      content => template($spark_env),
+       require => Package['spark-core'],
+     }
+ 
+     file { '/etc/spark/conf/spark-defaults.conf':
+-      content => template('spark/spark-defaults.conf'),
++      content => template($spark_defaults),
+       require => Package['spark-core'],
+     }
+ 
+diff --git a/bigtop-deploy/puppet/modules/spark/templates/spark-defaults.ha.conf b/bigtop-deploy/puppet/modules/spark/templates/spark-defaults.ha.conf
+new file mode 100644
+index 0000000..31eb0b8
+--- /dev/null
++++ b/bigtop-deploy/puppet/modules/spark/templates/spark-defaults.ha.conf
+@@ -0,0 +1,21 @@
++# Licensed to the Apache Software Foundation (ASF) under one or more
++# contributor license agreements.  See the NOTICE file distributed with
++# this work for additional information regarding copyright ownership.
++# The ASF licenses this file to You under the Apache License, Version 2.0
++# (the "License"); you may not use this file except in compliance with
++# the License.  You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++
++spark.master <%= @master_url %>
++spark.eventLog.enabled true
++spark.eventLog.dir <%= @event_log_dir %>
++spark.history.fs.logDirectory <%= @history_log_dir %>
++spark.history.ui.port <%= @history_ui_port %>
++spark.shuffle.service.enabled <%= @use_yarn_shuffle_service %>
+diff --git a/bigtop-deploy/puppet/modules/spark/templates/spark-env.ha.sh b/bigtop-deploy/puppet/modules/spark/templates/spark-env.ha.sh
+new file mode 100755
+index 0000000..845ac81
+--- /dev/null
++++ b/bigtop-deploy/puppet/modules/spark/templates/spark-env.ha.sh
+@@ -0,0 +1,29 @@
++#!/usr/bin/env bash
++# Licensed to the Apache Software Foundation (ASF) under one or more
++# contributor license agreements.  See the NOTICE file distributed with
++# this work for additional information regarding copyright ownership.
++# The ASF licenses this file to You under the Apache License, Version 2.0
++# (the "License"); you may not use this file except in compliance with
++# the License.  You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++
++export SPARK_HOME=${SPARK_HOME:-/usr/lib/spark}
++export SPARK_LOG_DIR=${SPARK_LOG_DIR:-/var/log/spark}
++export SPARK_DAEMON_JAVA_OPTS=<%= @spark_daemon_java_opts %>
++export HADOOP_HOME=${HADOOP_HOME:-/usr/lib/hadoop}
++export HADOOP_CONF_DIR=${HADOOP_CONF_DIR:-/etc/hadoop/conf}
++export HIVE_CONF_DIR=${HIVE_CONF_DIR:-/etc/hive/conf}
++
++export SPARK_MASTER_PORT=<%= @master_port %>
++export SPARK_MASTER_WEBUI_PORT=<%= @master_ui_port %>
++
++export SPARK_WORKER_DIR=${SPARK_WORKER_DIR:-/var/run/spark/work}
++export SPARK_WORKER_PORT=<%= @worker_port %>
++export SPARK_WORKER_WEBUI_PORT=<%= @worker_ui_port %>
+diff --git a/bigtop-deploy/puppet/modules/spark/templates/spark-env.sh b/bigtop-deploy/puppet/modules/spark/templates/spark-env.sh
+index eb351c7..765b4bb 100755
+--- a/bigtop-deploy/puppet/modules/spark/templates/spark-env.sh
++++ b/bigtop-deploy/puppet/modules/spark/templates/spark-env.sh
+@@ -16,6 +16,7 @@
+ 
+ export SPARK_HOME=${SPARK_HOME:-/usr/lib/spark}
+ export SPARK_LOG_DIR=${SPARK_LOG_DIR:-/var/log/spark}
++export SPARK_DAEMON_JAVA_OPTS=<%= @spark_daemon_java_opts %>
+ export HADOOP_HOME=${HADOOP_HOME:-/usr/lib/hadoop}
+ export HADOOP_CONF_DIR=${HADOOP_CONF_DIR:-/etc/hadoop/conf}
+ export HIVE_CONF_DIR=${HIVE_CONF_DIR:-/etc/hive/conf}
+-- 
+2.7.4
+
