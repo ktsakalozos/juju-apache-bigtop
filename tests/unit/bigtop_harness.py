@@ -6,44 +6,43 @@ import unittest
 
 
 class BigtopHarness(unittest.TestCase):
+    modules_to_mock = [
+        'charms.layer.apache_bigtop_base.layer',
+        'apache_bigtop_base.hookenv'
+    ]
+
     def setUp(self):
-        '''
-        Mock out many things.
-
-        '''
-        patchers = []
-
+        '''Mock out many things.'''
         self.patchers = []
-        options_patcher = mock.patch(
-            'charms.layer.apache_bigtop_base.layer')
-        self.options_mock = options_patcher.start()
-        patchers.append(options_patcher)
-        
+        self.mocks = {}
+
+        for module in self.modules_to_mock:
+            patcher = mock.patch(module)
+            self.mocks[module] = patcher.start()
+            self.patchers.append(patcher)
+
         # Setup status list
         self.statuses = []
-        hookenv_patcher = mock.patch('apache_bigtop_base.hookenv')
-        mock_status = hookenv_patcher.start()
+        mock_status = self.mocks['apache_bigtop_base.hookenv']
         mock_status.status_set = lambda a, b: self.statuses.append((a,b))
 
-        self.patchers.append(hookenv_patcher)
-
     def tearDown(self):
-        '''
-        Tear down these mocks!
-
-        '''
         for patcher in self.patchers:
             patcher.stop()
 
     @property
     def last_status(self):
-        # Helper for patched status list
+        '''Helper for mocked out status list.'''
+
         return self.statuses[-1]
 
     @classmethod
     def tearDownClass(cls):
-        print("running teardown class")
-        # CLeanup unit state db
+        '''
+        We don't mock out some calls that write to the unit state
+        db. Clean up that file here.
+
+        '''
         cwd = os.getcwd()
         state_db = Path(cwd) / '.unit-state.db'
         if state_db.exists():
