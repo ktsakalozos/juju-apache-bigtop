@@ -19,7 +19,14 @@ class Bigtop(object):
     _roles = set()
     _overrides = {}
 
-    def __init__(self):
+    def __init__(self, charm_yaml=None):
+        '''
+        Initialize our Bigtop class.
+
+        @param str charm_yaml: name of the charm yaml file. Defaults to the
+            name of this charm.
+
+        '''
         self.bigtop_dir = '/home/ubuntu/bigtop.release'
         self.options = layer.options('apache-bigtop-base')
         self.bigtop_version = self.options.get('bigtop_version')
@@ -27,8 +34,10 @@ class Bigtop(object):
         # Get the name for our <charml>.yaml file. Strip off the file
         # extension, if any, as we do not want to write the full
         # filename to hiera.yaml:
-        self.charm_yaml = self.options.get('bigtop_hiera_charmyaml'.split(
-            '.yaml')[0]) or hookenv.metadata()['name']
+        if charm_yaml and charm_yaml.endswith('.yaml'):
+            # strip off the .yaml file extension
+            charm_yaml = charm_yaml[:-5]
+        self.charm_yaml = charm_yaml or hookenv.metadata()['name']
         self.hieradata_path = self.bigtop_base / self.options.get(
             'bigtop_hieradata_path')
 
