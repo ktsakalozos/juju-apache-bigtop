@@ -1,13 +1,12 @@
 import mock
 import unittest
 
-from charms.reactive import set_state, remove_state, is_state
-from charms.reactive.helpers import data_changed
-from charms.reactive.bus import get_state
-
-from charmhelpers.fetch import UnhandledSource
-from charmhelpers.core.host import ChecksumError
 from charmhelpers.core import unitdata
+from charmhelpers.core.host import ChecksumError
+from charmhelpers.fetch import UnhandledSource
+from charms.reactive import set_state, remove_state, is_state
+from charms.reactive.bus import get_state
+from charms.reactive.helpers import data_changed
 
 from bigtop_harness import BigtopHarness
 
@@ -15,11 +14,13 @@ from apache_bigtop_base import missing_java, fetch_bigtop, set_java_home
 
 
 class TestMissingJava(BigtopHarness):
+    '''tests for our missing_java reactive handler.'''
+
     def test_missing_java(self):
         '''
-        Test to verify that this kicks us into a 'waiting' state if
-        'java.joined' is set, or tells us that we're blocked if it is
-        not.
+        Test to verify that our missing_java function kicks us into a
+        'waiting' state if 'java.joined' is set, or tells us that
+        we're blocked if it is not.
 
         '''
         set_state('some.state')
@@ -36,6 +37,10 @@ class TestMissingJava(BigtopHarness):
 
 
 class TestFetchBigtop(BigtopHarness):
+    '''
+    Test the fetch_bigtop reactive handler.
+
+    '''
     def setUp(self):
         super(TestFetchBigtop, self).setUp()
         self.bigtop_patcher = mock.patch('apache_bigtop_base.Bigtop')
@@ -78,6 +83,7 @@ class TestFetchBigtop(BigtopHarness):
         self.assertTrue('checksum error' in self.last_status[1])
 
 class TestJavaHome(BigtopHarness):
+    '''Tests for our set_java_home reactive handler.'''
 
     @mock.patch('apache_bigtop_base.utils')
     @mock.patch('apache_bigtop_base.RelationBase')

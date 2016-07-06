@@ -1,5 +1,5 @@
-from path import Path
 from collections import defaultdict
+from path import Path
 import mock
 import unittest
 
@@ -24,11 +24,11 @@ class TestBigtopUnit(BigtopHarness):
 
     def test_init(self):
         '''
-        Verify that our class can init itself, and that it has some of
-        the properties that we expect..
+        Verify that the Bigtop class can init itself, and that it has some
+        of the properties that we expect..
 
         '''
-        # Verify that our Paths our path objects
+        # paths should be Path objects.
         self.assertEqual(type(self.bigtop.bigtop_base), Path)
         self.assertEqual(type(self.bigtop.site_yaml), Path)
 
@@ -45,7 +45,7 @@ class TestBigtopUnit(BigtopHarness):
     @mock.patch('charms.layer.apache_bigtop_base.hookenv')
     def test_check_reverse_dns(self, mock_hookenv, mock_utils, mock_socket):
         '''
-        Verify that we set the reverse_dn_ok state, and handle errors
+        Verify that we set the reverse_dns_ok state, and handle errors
         correctly.
 
         '''
@@ -68,7 +68,7 @@ class TestBigtopUnit(BigtopHarness):
     @mock.patch('charms.layer.apache_bigtop_base.ArchiveUrlFetchHandler')
     def test_fetch_bigtop_release(self, mock_fetch):
         '''Verify that we attemp to fetch and install the bigtop archive.'''
-        
+
         mock_au = mock.Mock()
         mock_fetch.return_value = mock_au
 
@@ -78,6 +78,8 @@ class TestBigtopUnit(BigtopHarness):
 
     @mock.patch('charms.layer.apache_bigtop_base.utils')
     def test_install_puppet_modules(self, mock_utils):
+        '''Verify that we seem to install puppet modules correctly.'''
+
         def mock_run_as(user, *args):
             '''
             Verify that we run puppet as root.
@@ -94,6 +96,10 @@ class TestBigtopUnit(BigtopHarness):
     @mock.patch('charms.layer.apache_bigtop_base.chdir')
     def test_apply_patches(self, mock_chdir, mock_glob, mock_utils,
                            mock_hookenv):
+        '''
+        Verify that we apply patches in the correct order.
+
+        '''
         mock_hookenv.charm_dir.return_value = '/tmp'
 
         reverse_sorted = ['foo', 'baz', 'bar']
@@ -114,7 +120,7 @@ class TestBigtopUnit(BigtopHarness):
     @mock.patch('charms.layer.apache_bigtop_base.Path')
     def test_render_hiera_yaml(self, mock_path, mock_base, mock_yaml):
         '''
-        Verify that we attempt to add the values that we expect to config
+        Verify that we attempt to add the values that we expect our hiera
         object, before writing it out to a (mocked) yaml file.
 
         '''
@@ -176,7 +182,7 @@ class TestBigtopUnit(BigtopHarness):
 
         mock_yaml.dump.side_effect = verify_yaml
 
-        # Test various permutations of config that we pass in.
+        # Test various permutations of arguments passed in.
         for config_set in [
                 {'roles': ['foo', 'bar', 'baz']},  # Test roles
                 {'overrides': {'foo': 'bar'}}]:  # Test override
@@ -204,8 +210,8 @@ class TestBigtopUnit(BigtopHarness):
     @mock.patch('charms.layer.apache_bigtop_base.Bigtop.trigger_puppet')
     def test_handle_queued_puppet(self, mock_trigger):
         '''
-        Verify that we attempt to call puppet, and then clear the queued
-        state.
+        Verify that we attempt to call puppet when it has been queued, and
+        then clear the queued state.
 
         '''
         set_state('apache-bigtop-base.puppet_queued')
@@ -240,6 +246,11 @@ class TestBigtopUnit(BigtopHarness):
     @mock.patch('charms.layer.apache_bigtop_base.subprocess')
     @mock.patch('charms.layer.apache_bigtop_base.utils.run_as')
     def test_check_hdfs_setup(self, mock_run, mock_sub):
+        '''
+        Verify that our hdfs setup check works as expected, and handles
+        errors as expected.
+
+        '''
         class MockException(Exception): pass
         mock_sub.CalledProcessError = MockException
         def mock_raise(*args, **kwargs): raise MockException('foo!')
@@ -255,10 +266,9 @@ class TestBigtopUnit(BigtopHarness):
         mock_run.side_effect = mock_raise
         self.assertFalse(self.bigtop.check_hdfs_setup())
 
-    @unittest.skip('noop - covered by linter.')
+    @unittest.skip('noop')
     def test_spec(self):
-        pass
-
+        '''Nothing to test that the linter won't handle.'''
 
     @mock.patch('charms.layer.apache_bigtop_base.subprocess')
     @mock.patch('charms.layer.apache_bigtop_base.utils.run_as')
@@ -266,7 +276,11 @@ class TestBigtopUnit(BigtopHarness):
     @mock.patch('charms.layer.apache_bigtop_base.chownr')
     def test_run_smoke_tests(self, mock_ownr, mock_chdir, mock_run,
                              mock_sub):
+        '''
+        Verify that we attempt to run smoke tests correctly, and handle
+        exceptions as expected.
 
+        '''
         # Returns None if bigtop isn't available.
         remove_state('bigtop.available')
         self.assertEqual(None, self.bigtop.run_smoke_tests())
@@ -295,9 +309,9 @@ class TestBigtopUnit(BigtopHarness):
 
 class TestHelpers(BigtopHarness):
 
-    @unittest.skip('noop -- covered by linter')
+    @unittest.skip('noop')
     def test_get_hadoop_version(self):
-        pass
+        '''Mainly system calls -- covered by linter, and integration tests.'''
 
     @mock.patch('charms.layer.apache_bigtop_base.layer.options')
     def test_get_layer_opts(self, mock_options):
@@ -308,8 +322,14 @@ class TestHelpers(BigtopHarness):
 
     @mock.patch('charms.layer.apache_bigtop_base.subprocess')
     def test_get_fqdn(self, mock_sub):
-        '''Verify that we decode a utf-8 encoded string and strip spaces.'''
+        '''
+        Verify that we fetch our fqdn correctly, decoding the string and
+        stripping spaces.
 
+        Note: the tested function currently only handles utf-8 encoded
+        strings.
+
+        '''
         for s in [
                 b'foo',
                 b'foo  ',
