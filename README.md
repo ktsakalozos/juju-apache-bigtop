@@ -82,6 +82,12 @@ As of this writing, this layer does not define any actions.
 
 - <bigdata@lists.ubuntu.com>
 
+## Unit Tests
+
+To run unit tests for this layer, simple change to the root directory
+of the layer in a terminal, and run "tox". To tweak settings, such as
+making the tests more or less verbose, edit tox.ini.
+
 ## Help
 
 - [Juju mailing list](https://lists.ubuntu.com/mailman/listinfo/juju)
