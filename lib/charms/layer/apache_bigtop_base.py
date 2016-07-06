@@ -100,7 +100,8 @@ class Bigtop(object):
         hiera_yaml[':yaml'][':datadir'] = str(self.hieradata_path)
 
         # insert <charm>.yaml into the hierarchy, after site.yaml
-        hiera_yaml[':hierarchy'].insert(1, self.charm_yaml)
+        if not self.charm_yaml in hiera_yaml[':hierarchy']:
+            hiera_yaml[':hierarchy'].insert(1, self.charm_yaml)
 
         # write the file (note: Hiera is a bit picky about the format of
         # the yaml file, so the default_flow_style=False is required)
