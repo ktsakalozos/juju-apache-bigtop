@@ -55,14 +55,6 @@ defines:
     default: 'bigtop-deploy/puppet/hieradata/'
     description: 'Path to hierdata .yaml files.'
 
-  bigtop_hiera_charmyaml:
-    type: string
-    default: ''
-    description: >
-      This yaml file will be inserted into the hiera hierarchy, just below
-      site.yaml. If this option is left as an empty string, I will use the
-      charm name.
-
   bigtop_smoketest_components:
     type: array
     items: {type: string}
