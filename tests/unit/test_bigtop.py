@@ -7,9 +7,8 @@ from bigtop_harness import BigtopHarness
 from charmhelpers.core import hookenv, unitdata
 from charms.reactive import set_state, is_state, remove_state
 
-with mock.patch('charms.layer.apache_bigtop_base.layer'):
-    from charms.layer.apache_bigtop_base import (
-        Bigtop, get_hadoop_version, get_layer_opts, get_fqdn)
+from charms.layer.apache_bigtop_base import (
+    Bigtop, get_hadoop_version, get_layer_opts, get_fqdn)
 
 
 class TestBigtopUnit(BigtopHarness):
