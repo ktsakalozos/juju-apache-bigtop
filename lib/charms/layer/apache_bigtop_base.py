@@ -19,33 +19,18 @@ class Bigtop(object):
     _roles = set()
     _overrides = {}
 
-    def __init__(self, charm_yaml=None):
-        '''
-        Initialize our Bigtop class.
-
-        @param str charm_yaml: name of the charm yaml file. Defaults to the
-            name of this charm.
-
-        '''
+    def __init__(self):
         self.bigtop_dir = '/home/ubuntu/bigtop.release'
         self.options = layer.options('apache-bigtop-base')
         self.bigtop_version = self.options.get('bigtop_version')
         self.bigtop_base = Path(self.bigtop_dir) / self.bigtop_version
-        # Get the name for our <charml>.yaml file. Strip off the file
-        # extension, if any, as we do not want to write the full
-        # filename to hiera.yaml:
-        if charm_yaml and charm_yaml.endswith('.yaml'):
-            # strip off the .yaml file extension
-            charm_yaml = charm_yaml[:-5]
-        self.charm_yaml = charm_yaml or hookenv.metadata()['name']
-        self.hieradata_path = self.bigtop_base / self.options.get(
-            'bigtop_hieradata_path')
+        self.site_yaml = self.bigtop_base / self.options.get('bigtop_hiera_siteyaml')
 
     def install(self):
         """
         Install the base components of Apache Bigtop.
 
-        You will then need to call `render_charm_yaml` to set up the correct
+        You will then need to call `render_site_yaml` to set up the correct
         configuration and `trigger_puppet` to install the desired components.
         """
         self.check_reverse_dns()
@@ -86,9 +71,7 @@ class Bigtop(object):
 
     def render_hiera_yaml(self):
         """
-        Render the ``hiera.yaml`` file with the correct path to our
-        ``<charm>.yaml`` file.
-
+        Render the ``hiera.yaml`` file with the correct path to our ``site.yaml`` file.
         """
         hiera_src = self.bigtop_base / self.options.get('bigtop_hiera_config')
         hiera_dst = Path(self.options.get('bigtop_hiera_path'))
@@ -97,28 +80,18 @@ class Bigtop(object):
         hiera_yaml = yaml.load(hiera_src.text())
 
         # set the datadir
-        hiera_yaml[':yaml'][':datadir'] = str(self.hieradata_path)
-
-        # insert <charm>.yaml into the hierarchy, after site.yaml
-        if not self.charm_yaml in hiera_yaml[':hierarchy']:
-            hiera_yaml[':hierarchy'].insert(1, self.charm_yaml)
+        hiera_yaml[':yaml'][':datadir'] = str(self.site_yaml.dirname())
 
         # write the file (note: Hiera is a bit picky about the format of
         # the yaml file, so the default_flow_style=False is required)
         hiera_dst.write_text(yaml.dump(hiera_yaml, default_flow_style=False))
 
     def render_site_yaml(self, hosts=None, roles=None, overrides=None):
-        """Deprecated -- use render_charm_yaml in the future."""
-
-        return self.render_charm_yaml(hosts, roles, overrides)
-
-    def render_charm_yaml(self, hosts=None, roles=None, overrides=None):
         """
-        Render ``<charm>.yaml`` file with appropriate Hiera data.
+        Render ``site.yaml`` file with appropriate Hiera data.
 
         :param dict hosts: Mapping of host names to master addresses, which
-            will be used by `render_charm_yaml` to create the configuration
-            for Puppet.
+            will be used by `render_site_yaml` to create the configuration for Puppet.
 
             Currently supported names are:
 
@@ -134,7 +107,7 @@ class Bigtop(object):
             with a different set of hosts, the old hosts will be preserved.
 
         :param list roles: A list of roles this machine will perform, which
-            will be used by `render_charm_yaml` to create the configuration for
+            will be used by `render_site_yaml` to create the configuration for
             Puppet.
 
             If no roles are set, the ``bigtop_component_list`` layer option
@@ -146,7 +119,7 @@ class Bigtop(object):
             with a different set of roles, the old roles will be preserved.
 
         :param dict overrides: A dict of additional data to go in to the
-            ``<charm>.yaml``, which will override data generated from `hosts`
+            ``site.yaml``, which will override data generated from `hosts`
             and `roles`.
 
             Note that extra properties set by this are additive.  That is,
@@ -159,16 +132,12 @@ class Bigtop(object):
         if isinstance(roles, str):
             roles = [roles]
         overrides = overrides or {}
-
-        # Fetch existing charm_yaml data, if any.
-        charm_yaml = self.hieradata_path / '{}.yaml'.format(self.charm_yaml)
-        charm_yaml.touch()  # Create the file if it doesn't exist
-        charm_data = yaml.load(charm_yaml.text()) or {}
+        site_data = yaml.load(self.site_yaml.text())
 
         # define common defaults
         bigtop_apt = self.options.get('bigtop_repo-{}'.format(utils.cpu_arch()))
         hostname_check = unitdata.kv().get('reverse_dns_ok')
-        charm_data.update({
+        site_data.update({
             'bigtop::bigtop_repo_uri': bigtop_apt,
             'bigtop::jdk_preinstalled': True,
             'hadoop::hadoop_storage_dirs': ['/data/1', '/data/2'],
@@ -177,16 +146,16 @@ class Bigtop(object):
         })
 
         # update based on configuration type (roles vs components)
-        roles = set(roles) | set(charm_data.get('bigtop::roles', []))
+        roles = set(roles) | set(site_data.get('bigtop::roles', []))
         if roles:
-            charm_data.update({
+            site_data.update({
                 'bigtop::roles_enabled': True,
                 'bigtop::roles': sorted(roles),
             })
         else:
             gw_host = subprocess.check_output(['facter', 'fqdn']).strip().decode()
             cluster_components = self.options.get("bigtop_component_list").split()
-            charm_data.update({
+            site_data.update({
                 'bigtop::hadoop_gateway_node': gw_host,
                 'hadoop_cluster_node::cluster_components': cluster_components,
             })
@@ -209,21 +178,21 @@ class Bigtop(object):
         }
         for host in hosts.keys() & hosts_to_properties.keys():
             for prop in hosts_to_properties[host]:
-                charm_data[prop] = hosts[host]
+                site_data[prop] = hosts[host]
 
         # apply any additonal data / overrides
-        charm_data.update(overrides)
+        site_data.update(overrides)
 
         # write the file
-        charm_yaml.dirname().makedirs_p()
-        charm_yaml.write_text(yaml.dump(charm_data, default_flow_style=False))
+        self.site_yaml.dirname().makedirs_p()
+        self.site_yaml.write_text(yaml.dump(site_data, default_flow_style=False))
 
     def queue_puppet(self):
         """
         Queue a reactive handler that will call `trigger_puppet`.
 
         This is used to give any other concurrent handlers a chance to update
-        the ``<charm>.yaml`` with new hosts, roles, or overrides.
+        the ``site.yaml`` with new hosts, roles, or overrides.
         """
         set_state('apache-bigtop-base.puppet_queued')
 
