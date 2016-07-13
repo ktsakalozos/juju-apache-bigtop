@@ -50,10 +50,10 @@ defines:
     default: 'bigtop-deploy/puppet/hiera.yaml'
     description: 'Hiera Bigtop config'
 
-  bigtop_hiera_siteyaml:
+  bigtop_hieradata_path:
     type: string
-    default: 'bigtop-deploy/puppet/hieradata/site.yaml'
-    description: 'Hiera Bigtop config'
+    default: 'bigtop-deploy/puppet/hieradata/'
+    description: 'Path to hierdata .yaml files.'
 
   bigtop_smoketest_components:
     type: array
