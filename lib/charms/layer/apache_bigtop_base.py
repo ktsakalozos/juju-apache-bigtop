@@ -100,7 +100,9 @@ class Bigtop(object):
         hiera_yaml[':yaml'][':datadir'] = str(self.hieradata_path)
 
         # insert <charm>.yaml into the hierarchy, after site.yaml
+        hookenv.log("charm.yaml is {}".format(self.charm_yaml))
         if self.charm_yaml not in hiera_yaml[':hierarchy']:
+            hookenv.log("writing charm.yaml to hierarchy as {}".format(self.charm_yaml))
             hiera_yaml[':hierarchy'].insert(1, self.charm_yaml)
 
         # write the file (note: Hiera is a bit picky about the format of
