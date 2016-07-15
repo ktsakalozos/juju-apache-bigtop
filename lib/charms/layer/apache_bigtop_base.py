@@ -19,7 +19,7 @@ class Bigtop(object):
     _roles = set()
     _overrides = {}
 
-    def __init__(self, charm_yaml=None):
+    def __init__(self):
         '''
         Initialize our Bigtop class.
 
@@ -31,13 +31,8 @@ class Bigtop(object):
         self.options = layer.options('apache-bigtop-base')
         self.bigtop_version = self.options.get('bigtop_version')
         self.bigtop_base = Path(self.bigtop_dir) / self.bigtop_version
-        # Get the name for our <charml>.yaml file. Strip off the file
-        # extension, if any, as we do not want to write the full
-        # filename to hiera.yaml:
-        if charm_yaml and charm_yaml.endswith('.yaml'):
-            # strip off the .yaml file extension
-            charm_yaml = charm_yaml[:-5]
-        self.charm_yaml = charm_yaml or hookenv.metadata()['name']
+        self.charm_yaml = "charm" if self.options.get(
+            'use_charm_yaml') else "site"
         self.hieradata_path = self.bigtop_base / self.options.get(
             'bigtop_hieradata_path')
 
@@ -87,7 +82,7 @@ class Bigtop(object):
     def render_hiera_yaml(self):
         """
         Render the ``hiera.yaml`` file with the correct path to our
-        ``<charm>.yaml`` file.
+        ``charm.yaml`` file.
 
         """
         hiera_src = self.bigtop_base / self.options.get('bigtop_hiera_config')
@@ -99,10 +94,8 @@ class Bigtop(object):
         # set the datadir
         hiera_yaml[':yaml'][':datadir'] = str(self.hieradata_path)
 
-        # insert <charm>.yaml into the hierarchy, after site.yaml
-        hookenv.log("charm.yaml is {}".format(self.charm_yaml))
+        # insert ``charm.yaml`` into the hierarchy, after site.yaml
         if self.charm_yaml not in hiera_yaml[':hierarchy']:
-            hookenv.log("writing charm.yaml to hierarchy as {}".format(self.charm_yaml))
             hiera_yaml[':hierarchy'].insert(1, self.charm_yaml)
 
         # write the file (note: Hiera is a bit picky about the format of
@@ -116,7 +109,7 @@ class Bigtop(object):
 
     def render_charm_yaml(self, hosts=None, roles=None, overrides=None):
         """
-        Render ``<charm>.yaml`` file with appropriate Hiera data.
+        Render ``charm.yaml`` file with appropriate Hiera data.
 
         :param dict hosts: Mapping of host names to master addresses, which
             will be used by `render_charm_yaml` to create the configuration
@@ -148,7 +141,7 @@ class Bigtop(object):
             with a different set of roles, the old roles will be preserved.
 
         :param dict overrides: A dict of additional data to go in to the
-            ``<charm>.yaml``, which will override data generated from `hosts`
+            ``charm.yaml``, which will override data generated from `hosts`
             and `roles`.
 
             Note that extra properties set by this are additive.  That is,
@@ -225,7 +218,7 @@ class Bigtop(object):
         Queue a reactive handler that will call `trigger_puppet`.
 
         This is used to give any other concurrent handlers a chance to update
-        the ``<charm>.yaml`` with new hosts, roles, or overrides.
+        ``charm.yaml`` with new hosts, roles, or overrides.
         """
         set_state('apache-bigtop-base.puppet_queued')
 

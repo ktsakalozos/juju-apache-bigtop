@@ -55,6 +55,11 @@ defines:
     default: 'bigtop-deploy/puppet/hieradata/'
     description: 'Path to hierdata .yaml files.'
 
+  use_charm_yaml:
+    description: Write to charm.yaml, instead of site.yaml
+    type: boolean
+    default: false
+
   bigtop_smoketest_components:
     type: array
     items: {type: string}
