@@ -185,7 +185,11 @@ class Bigtop(object):
 
         # write the file
         self.site_yaml.dirname().makedirs_p()
-        self.site_yaml.write_text(yaml.dump(site_data, default_flow_style=False))
+        self.site_yaml.write_text('{comment}{sep}{dump}'.format(
+            comment="# Juju manages this file. Modifications may be overwritten!",
+            sep=os.linesep,
+            dump=yaml.dump(site_data, default_flow_style=False)
+        ))
 
     def queue_puppet(self):
         """
