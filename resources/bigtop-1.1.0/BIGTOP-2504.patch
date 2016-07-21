@@ -1,0 +1,85 @@
+From 54104839c91e6fed9281967a8629d3f9ea27d68c Mon Sep 17 00:00:00 2001
+From: Pete Vander Giessen <petevg@gmail.com>
+Date: Tue, 19 Jul 2016 16:40:35 -0400
+Subject: [PATCH 1/2] Added bind_addr value for server.properties
+
+If set to something that ruby evaluates as true, will be written to
+server.properties. Causes the server to listen on the ip/interface
+indicated by the value of the string.
+---
+ bigtop-deploy/puppet/hieradata/bigtop/cluster.yaml             | 1 +
+ bigtop-deploy/puppet/modules/kafka/manifests/init.pp           | 3 ++-
+ bigtop-deploy/puppet/modules/kafka/templates/server.properties | 4 ++++
+ 3 files changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/bigtop-deploy/puppet/hieradata/bigtop/cluster.yaml b/bigtop-deploy/puppet/hieradata/bigtop/cluster.yaml
+index 55f5bcd..d6246fd 100644
+--- a/bigtop-deploy/puppet/hieradata/bigtop/cluster.yaml
++++ b/bigtop-deploy/puppet/hieradata/bigtop/cluster.yaml
+@@ -191,6 +191,7 @@ hadoop::common::tez_jars: "/usr/lib/tez"
+ #kafka
+ kafka::server::port: "9092"
+ kafka::server::zookeeper_connection_string: "%{hiera('bigtop::hadoop_head_node')}:2181"
++kafka::server::bind_addr: ""
+ 
+ zeppelin::server::spark_master_url: "yarn-client"
+ zeppelin::server::hiveserver2_url: "jdbc:hive2://%{hiera('hadoop-hive::common::hiveserver2_host')}:%{hiera('hadoop-hive::common::hiveserver2_port')}"
+diff --git a/bigtop-deploy/puppet/modules/kafka/manifests/init.pp b/bigtop-deploy/puppet/modules/kafka/manifests/init.pp
+index f44b737..3394481 100644
+--- a/bigtop-deploy/puppet/modules/kafka/manifests/init.pp
++++ b/bigtop-deploy/puppet/modules/kafka/manifests/init.pp
+@@ -24,7 +24,8 @@ class kafka {
+   class server(
+       $broker_id = "0",
+       $port = "9092",
+-      $zookeeper_connection_string = "localhost:2181"
++      $zookeeper_connection_string = "localhost:2181",
++      $bind_addr = ""
+     ) {
+ 
+     package { 'kafka':
+diff --git a/bigtop-deploy/puppet/modules/kafka/templates/server.properties b/bigtop-deploy/puppet/modules/kafka/templates/server.properties
+index a30e970..626c52f 100644
+--- a/bigtop-deploy/puppet/modules/kafka/templates/server.properties
++++ b/bigtop-deploy/puppet/modules/kafka/templates/server.properties
+@@ -25,7 +25,11 @@ broker.id=<%= @broker_id %>
+ port=<%= @port %>
+ 
+ # Hostname the broker will bind to. If not set, the server will bind to all interfaces
++<% if @bind_addr %>
++host.name=<%= @bind_addr %>
++<% else %>
+ #host.name=localhost
++<% end %>
+ 
+ # Hostname the broker will advertise to producers and consumers. If not set, it uses the
+ # value for "host.name" if configured.  Otherwise, it will use the value returned from
+-- 
+2.7.4
+
+
+From aeb429fa5c541835d6f3507867329cc470239b8c Mon Sep 17 00:00:00 2001
+From: Pete Vander Giessen <petevg@gmail.com>
+Date: Thu, 21 Jul 2016 13:33:55 -0400
+Subject: [PATCH 2/2] Fixes to puppet recipes.
+
+---
+ bigtop-deploy/puppet/modules/kafka/templates/server.properties | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/bigtop-deploy/puppet/modules/kafka/templates/server.properties b/bigtop-deploy/puppet/modules/kafka/templates/server.properties
+index 626c52f..6e85413 100644
+--- a/bigtop-deploy/puppet/modules/kafka/templates/server.properties
++++ b/bigtop-deploy/puppet/modules/kafka/templates/server.properties
+@@ -25,7 +25,7 @@ broker.id=<%= @broker_id %>
+ port=<%= @port %>
+ 
+ # Hostname the broker will bind to. If not set, the server will bind to all interfaces
+-<% if @bind_addr %>
++<% if !@bind_addr.nil? && !@bind_addr.empty? %>
+ host.name=<%= @bind_addr %>
+ <% else %>
+ #host.name=localhost
+-- 
+2.7.4
+
