@@ -1,4 +1,5 @@
 import os
+import platform
 import socket
 import subprocess
 import yaml
@@ -23,8 +24,8 @@ class Bigtop(object):
         self.bigtop_dir = '/home/ubuntu/bigtop.release'
         self.options = layer.options('apache-bigtop-base')
         self.bigtop_version = self.options.get('bigtop_version')
-        self.bigtop_base = Path(self.bigtop_dir) / self.bigtop_version
-        self.site_yaml = self.bigtop_base / self.options.get('bigtop_hiera_siteyaml')
+        self.bigtop_base = Path(self.bigtop_dir) / 'bigtop-%s' % self.bigtop_version
+        self.site_yaml = Path(self.bigtop_base) / self.options.get('bigtop_hiera_siteyaml')
 
     def install(self):
         """
@@ -65,7 +66,7 @@ class Bigtop(object):
 
     def apply_patches(self):
         charm_dir = Path(hookenv.charm_dir())
-        for patch in sorted(glob('resources/{}/*.patch'.format(self.bigtop_version))):
+        for patch in sorted(glob('resources/bigtop-{}/*.patch'.format(self.bigtop_version))):
             with chdir("{}".format(self.bigtop_base)):
                 utils.run_as('root', 'patch', '-p1', '-s', '-i', charm_dir / patch)
 
@@ -73,7 +74,7 @@ class Bigtop(object):
         """
         Render the ``hiera.yaml`` file with the correct path to our ``site.yaml`` file.
         """
-        hiera_src = self.bigtop_base / self.options.get('bigtop_hiera_config')
+        hiera_src = Path(self.bigtop_base) / self.options.get('bigtop_hiera_config')
         hiera_dst = Path(self.options.get('bigtop_hiera_path'))
 
         # read template defaults
@@ -135,7 +136,21 @@ class Bigtop(object):
         site_data = yaml.load(self.site_yaml.text())
 
         # define common defaults
-        bigtop_apt = self.options.get('bigtop_repo-{}'.format(utils.cpu_arch()))
+        distname, distver, distseries = platform.linux_distribution()
+        # NB: xenial repo does not currently work. force vivid on ppc
+        # and trusty on everyone else for now:
+        #   http://paste.ubuntu.com/18185418/
+        if utils.cpu_arch() == "ppc64el":
+            distseries = "vivid"
+        else:
+            distseries = "trusty"
+        bigtop_apt = "{base}/{ver}/{dist}/{series}/{arch}".format(
+            base=self.options.get('bigtop_repo_url'),
+            ver=self.bigtop_version,
+            dist=distname.lower(),
+            series=distseries.lower(),
+            arch=utils.cpu_arch()
+        )
         hostname_check = unitdata.kv().get('reverse_dns_ok')
         site_data.update({
             'bigtop::bigtop_repo_uri': bigtop_apt,
