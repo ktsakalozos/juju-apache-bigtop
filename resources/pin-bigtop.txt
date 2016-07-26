@@ -1,0 +1,3 @@
+Package: *
+Pin: origin "{origin}"
+Pin-Priority: 999

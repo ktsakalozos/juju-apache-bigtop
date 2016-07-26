@@ -1,0 +1,42 @@
+From 62fb6a3eeee35efb8a4f8fc00b69100cc6845161 Mon Sep 17 00:00:00 2001
+From: Pete Vander Giessen <petevg@gmail.com>
+Date: Mon, 25 Jul 2016 12:30:03 -0400
+Subject: [PATCH] Added puppet config for clientPortBindAddress.
+
+Allows us to bind to a specific interface/ip in secure environments,
+where we might want to restrict incoming connnections.
+---
+ bigtop-deploy/puppet/modules/hadoop_zookeeper/manifests/init.pp | 1 +
+ bigtop-deploy/puppet/modules/hadoop_zookeeper/templates/zoo.cfg | 4 ++++
+ 2 files changed, 5 insertions(+)
+
+diff --git a/bigtop-deploy/puppet/modules/hadoop_zookeeper/manifests/init.pp b/bigtop-deploy/puppet/modules/hadoop_zookeeper/manifests/init.pp
+index 6965090..d53460e 100644
+--- a/bigtop-deploy/puppet/modules/hadoop_zookeeper/manifests/init.pp
++++ b/bigtop-deploy/puppet/modules/hadoop_zookeeper/manifests/init.pp
+@@ -63,6 +63,7 @@ class hadoop_zookeeper (
+                 $datadir = "/var/lib/zookeeper",
+                 $ensemble = ["localhost:2888:3888"],
+                 $kerberos_realm = $hadoop_zookeeper::kerberos_realm,
++                $client_bind_addr = "",
+   ) inherits hadoop_zookeeper {
+     include common
+ 
+diff --git a/bigtop-deploy/puppet/modules/hadoop_zookeeper/templates/zoo.cfg b/bigtop-deploy/puppet/modules/hadoop_zookeeper/templates/zoo.cfg
+index 69d98c4..d01925a 100644
+--- a/bigtop-deploy/puppet/modules/hadoop_zookeeper/templates/zoo.cfg
++++ b/bigtop-deploy/puppet/modules/hadoop_zookeeper/templates/zoo.cfg
+@@ -24,6 +24,10 @@ initLimit=10
+ syncLimit=5
+ # the directory where the snapshot is stored.
+ dataDir=<%= @datadir %>
++<% if !@client_bind_addr.nil? && !@client_bind_addr.empty? %>
++# bind to this network ip/interface
++clientPortAddress=<%= @client_bind_addr %>
++<% end %>
+ # the port at which the clients will connect
+ clientPort=<%= @port %>
+ <% @ensemble.each_with_index do |server,idx| %>
+-- 
+2.7.4
+
