@@ -3,6 +3,7 @@ import socket
 import subprocess
 import yaml
 from glob import glob
+from urllib.parse import urlparse
 
 from path import Path
 
@@ -25,6 +26,8 @@ class Bigtop(object):
         self.bigtop_version = self.options.get('bigtop_version')
         self.bigtop_base = Path(self.bigtop_dir) / self.bigtop_version
         self.site_yaml = self.bigtop_base / self.options.get('bigtop_hiera_siteyaml')
+        self.bigtop_apt = self.options.get(
+            'bigtop_repo-{}'.format(utils.cpu_arch()))
 
     def install(self):
         """
@@ -33,11 +36,26 @@ class Bigtop(object):
         You will then need to call `render_site_yaml` to set up the correct
         configuration and `trigger_puppet` to install the desired components.
         """
+        self.pin_bigtop_packages()
         self.check_reverse_dns()
         self.fetch_bigtop_release()
         self.install_puppet_modules()
         self.apply_patches()
         self.render_hiera_yaml()
+
+    def pin_bigtop_packages(self):
+        """
+        Tell Ubuntu to use the Bigtop repo where possible, so that we
+        don't actually fetch newer packages from universe.
+
+        """
+        origin = urlparse(self.bigtop_apt).netloc
+
+        with open("resources/pin-bigtop.txt", "r") as pin_file:
+            pin_file = pin_file.read().format(origin=origin)
+
+        with open("/etc/apt/preferences.d/bigtop-999", "w") as out_file:
+            out_file.write(pin_file)
 
     def check_reverse_dns(self):
         # If we can't reverse resolve the hostname (like on azure), support DN
@@ -135,10 +153,9 @@ class Bigtop(object):
         site_data = yaml.load(self.site_yaml.text())
 
         # define common defaults
-        bigtop_apt = self.options.get('bigtop_repo-{}'.format(utils.cpu_arch()))
         hostname_check = unitdata.kv().get('reverse_dns_ok')
         site_data.update({
-            'bigtop::bigtop_repo_uri': bigtop_apt,
+            'bigtop::bigtop_repo_uri': self.bigtop_apt,
             'bigtop::jdk_preinstalled': True,
             'hadoop::hadoop_storage_dirs': ['/data/1', '/data/2'],
             'hadoop::common_yarn::yarn_nodemanager_vmem_check_enabled': False,
