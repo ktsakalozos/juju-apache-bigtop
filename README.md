@@ -86,7 +86,7 @@ As of this writing, this layer does not define any actions.
 
 To run unit tests for this layer, change to the root directory of the
 layer in a terminal, and run "tox -c tox_unit.ini". To tweak settings,
-such as making the tests more or less verbose, edit tox-unit.ini.
+such as making the tests more or less verbose, edit tox_unit.ini.
 
 ## Help
 
