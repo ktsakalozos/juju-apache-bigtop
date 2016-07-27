@@ -84,9 +84,9 @@ As of this writing, this layer does not define any actions.
 
 ## Unit Tests
 
-To run unit tests for this layer, simple change to the root directory
-of the layer in a terminal, and run "tox". To tweak settings, such as
-making the tests more or less verbose, edit tox.ini.
+To run unit tests for this layer, change to the root directory of the
+layer in a terminal, and run "tox -c tox_unit.ini". To tweak settings,
+such as making the tests more or less verbose, edit tox-unit.ini.
 
 ## Help
 
