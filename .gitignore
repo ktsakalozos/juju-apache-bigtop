@@ -1,3 +1,11 @@
+# Tox
 .tox
 .cache
 __pycache__
+
+# Emacs
+*~
+*#*
+
+# Python
+*.pyc

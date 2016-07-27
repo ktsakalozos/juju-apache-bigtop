@@ -2,6 +2,10 @@ includes:
   - 'layer:basic'
   - 'layer:puppet-agent'
   - 'interface:java'
+ignore:
+  - 'tests/unit'
+  - 'tox_unit.ini'
+  - 'unit_test_requirements.txt'
 options:
   basic:
     packages:

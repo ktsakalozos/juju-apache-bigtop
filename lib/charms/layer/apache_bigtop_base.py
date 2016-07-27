@@ -20,14 +20,25 @@ class Bigtop(object):
     _roles = set()
     _overrides = {}
 
+    @property
+    def bigtop_base(self):
+        '''Path to the bigtop root directory.'''
+        return self._bigtop_base
+
+    @property
+    def site_yaml(self):
+        '''Path to the site_yaml config file.'''
+        return self._site_yaml
+
     def __init__(self):
         self.bigtop_dir = '/home/ubuntu/bigtop.release'
         self.options = layer.options('apache-bigtop-base')
         self.bigtop_version = self.options.get('bigtop_version')
-        self.bigtop_base = Path(self.bigtop_dir) / self.bigtop_version
-        self.site_yaml = self.bigtop_base / self.options.get('bigtop_hiera_siteyaml')
         self.bigtop_apt = self.options.get(
             'bigtop_repo-{}'.format(utils.cpu_arch()))
+        self._bigtop_base = Path(self.bigtop_dir) / self.bigtop_version
+        self._site_yaml = self.bigtop_base / self.options.get(
+            'bigtop_hiera_siteyaml')
 
     def install(self):
         """
