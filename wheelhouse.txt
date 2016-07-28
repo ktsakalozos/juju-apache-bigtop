@@ -1,2 +1,4 @@
 jujuresources>=0.3.3,<1.0.0
 jujubigdata>=7.0.0,<8.0.0
+netifaces==0.10.4
+
