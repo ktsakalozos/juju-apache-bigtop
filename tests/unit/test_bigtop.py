@@ -8,7 +8,7 @@ from charmhelpers.core import hookenv, unitdata
 from charms.reactive import set_state, is_state, remove_state
 
 from charms.layer.apache_bigtop_base import (
-    Bigtop, get_hadoop_version, get_layer_opts, get_fqdn)
+    Bigtop, get_hadoop_version, get_layer_opts, get_fqdn, BigtopError)
 
 
 class TestBigtopUnit(BigtopHarness):
@@ -305,6 +305,37 @@ class TestBigtopUnit(BigtopHarness):
             self.bigtop.run_smoke_tests(smoke_components=['foo', 'bar']),
             "test output"
         )
+
+    def test_get_ip_for_interface(self):
+        '''
+        Test to verify that our get_ip_for_interface method does sensible
+        things.
+
+        '''
+        ip = self.bigtop.get_ip_for_interface('lo')
+        self.assertEqual(ip, '127.0.0.1')
+
+        ip = self.bigtop.get_ip_for_interface('127.0.0.0/24')
+        self.assertEqual(ip, '127.0.0.1')
+
+        self.assertRaises(
+            BigtopError,
+            self.bigtop.get_ip_for_interface,
+            '2.2.2.0/24')
+
+        self.assertRaises(
+            BigtopError,
+            self.bigtop.get_ip_for_interface,
+            'foo')
+
+        # Uncomment and replace with your local ethernet or wireless
+        # interface for extra testing/paranoia.
+        # ip = self.bigtop.get_ip_for_interface('enp4s0')
+        # self.assertEqual(ip, '192.168.1.238')
+
+        # ip = self.bigtop.get_ip_for_interface('192.168.1.0/24')
+        # self.assertEqual(ip, '192.168.1.238')
+
 
 class TestHelpers(BigtopHarness):
 

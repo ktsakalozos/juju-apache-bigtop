@@ -5,6 +5,8 @@ import yaml
 from glob import glob
 from urllib.parse import urlparse
 
+import ipaddress
+import netifaces
 from path import Path
 
 from charms import layer
@@ -13,6 +15,10 @@ from jujubigdata import utils
 from charmhelpers.core import hookenv, unitdata
 from charmhelpers.core.host import chdir, chownr
 from charms.reactive import when, set_state, remove_state, is_state
+
+
+class BigtopError(Exception):
+    """Handy Exception to raise for errors in this module."""
 
 
 class Bigtop(object):
@@ -39,6 +45,38 @@ class Bigtop(object):
         self._bigtop_base = Path(self.bigtop_dir) / self.bigtop_version
         self._site_yaml = self.bigtop_base / self.options.get(
             'bigtop_hiera_siteyaml')
+
+    def get_ip_for_interface(self, network_interface):
+        """
+        Helper to return the ip address of this machine on a specific
+        interface.
+
+        @param str network_interface: either the name of the
+        interface, or a CIDR range, in which we expect the interface's
+        ip to fall.
+
+        """
+        # Is this a CIDR range, or an interface name?
+        is_cidr = len(network_interface.split(".")) == 4 or len(network_interface.split(":")) == 8
+
+        if is_cidr:
+            interfaces = netifaces.interfaces()
+            for interface in interfaces:
+                try:
+                    ip = netifaces.ifaddresses(interface)[2][0]['addr']
+                except KeyError:
+                    continue
+
+                if ipaddress.ip_address(ip) in ipaddress.ip_network(network_interface):
+                    return ip
+
+            raise BigtopError(u"This machine has no interfaces in CIDR range {}".format(network_interface))
+        else:
+            try:
+                ip = netifaces.ifaddresses(network_interface)[2][0]['addr']
+            except ValueError:
+                raise BigtopError(u"This machine does not have an interface '{}'".format(network_interface))
+            return ip
 
     def install(self):
         """
