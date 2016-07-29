@@ -53,9 +53,14 @@ class Bigtop(object):
 
         @param str network_interface: either the name of the
         interface, or a CIDR range, in which we expect the interface's
-        ip to fall.
+        ip to fall. Also accepts 0.0.0.0 as a special case, which will
+        simply return 0.0.0.0.
 
         """
+        if network_interface == '0.0.0.0':
+            # Allow users to reset the charm to listening on any interface.
+            return network_interface
+
         # Is this a CIDR range, or an interface name?
         is_cidr = len(network_interface.split(".")) == 4 or len(network_interface.split(":")) == 8
 
