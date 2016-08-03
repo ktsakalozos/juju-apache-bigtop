@@ -318,10 +318,11 @@ class TestBigtopUnit(BigtopHarness):
         ip = self.bigtop.get_ip_for_interface('127.0.0.0/24')
         self.assertEqual(ip, '127.0.0.1')
 
-        # If passed 0.0.0.0, the function should treat it as a special
-        # case, and return what it was passed.
-        ip = self.bigtop.get_ip_for_interface('0.0.0.0')
-        self.assertEqual(ip, '0.0.0.0')
+        # If passed 0.0.0.0, or something similar, the function should
+        # treat it as a special case, and return what it was passed.
+        for i in ['0.0.0.0', '0.0.0.0/0', '0/0', '::']:
+            ip = self.bigtop.get_ip_for_interface(i)
+            self.assertEqual(ip, i)
 
         self.assertRaises(
             BigtopError,
