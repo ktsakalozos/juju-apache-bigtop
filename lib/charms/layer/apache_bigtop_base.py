@@ -53,8 +53,8 @@ class Bigtop(object):
 
         @param str network_interface: either the name of the
         interface, or a CIDR range, in which we expect the interface's
-        ip to fall. Also accepts 0.0.0.0 as a special case, which will
-        simply return 0.0.0.0.
+        ip to fall. Also accepts 0.0.0.0 (and variants, like 0/0) as a
+        special case, which will simply return what you passed in.
 
         """
         if network_interface.startswith('0') or network_interface == '::':
