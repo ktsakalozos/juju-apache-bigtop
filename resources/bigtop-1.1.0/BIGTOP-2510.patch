@@ -1,0 +1,25 @@
+From dd7a881caf577cd84d96107c4798e0f6f3c70e8e Mon Sep 17 00:00:00 2001
+From: Konstantinos Tsakalozos <konstantinos.tsakalozos@canonical.com>
+Date: Tue, 19 Jul 2016 16:21:21 +0300
+Subject: [PATCH] BIGTOP-2510: Add role in puppet scripts to deploy journal
+ node of Hadoop HA
+
+---
+ bigtop-deploy/puppet/modules/hadoop/manifests/init.pp | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/bigtop-deploy/puppet/modules/hadoop/manifests/init.pp b/bigtop-deploy/puppet/modules/hadoop/manifests/init.pp
+index 90c9505..26d27df 100644
+--- a/bigtop-deploy/puppet/modules/hadoop/manifests/init.pp
++++ b/bigtop-deploy/puppet/modules/hadoop/manifests/init.pp
+@@ -56,6 +56,10 @@
+       include hadoop::nodemanager
+     }
+ 
++    if ("journalnode" in $roles) {
++      include hadoop::journalnode
++    }
++
+     if ("resourcemanager" in $roles) {
+       include hadoop::resourcemanager
+       include hadoop::historyserver
