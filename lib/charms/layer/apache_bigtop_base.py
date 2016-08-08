@@ -53,11 +53,19 @@ class Bigtop(object):
 
         @param str network_interface: either the name of the
         interface, or a CIDR range, in which we expect the interface's
-        ip to fall.
+        ip to fall. Also accepts 0.0.0.0 (and variants, like 0/0) as a
+        special case, which will simply return what you passed in.
 
         """
+        if network_interface.startswith('0') or network_interface == '::':
+            # Allow users to reset the charm to listening on any
+            # interface.  Allow operators to specify this however they
+            # wish (0.0.0.0, ::, 0/0, etc.).
+            return network_interface
+
         # Is this a CIDR range, or an interface name?
-        is_cidr = len(network_interface.split(".")) == 4 or len(network_interface.split(":")) == 8
+        is_cidr = len(network_interface.split(".")) == 4 or len(
+            network_interface.split(":")) == 8
 
         if is_cidr:
             interfaces = netifaces.interfaces()
@@ -67,15 +75,20 @@ class Bigtop(object):
                 except KeyError:
                     continue
 
-                if ipaddress.ip_address(ip) in ipaddress.ip_network(network_interface):
+                if ipaddress.ip_address(ip) in ipaddress.ip_network(
+                        network_interface):
                     return ip
 
-            raise BigtopError(u"This machine has no interfaces in CIDR range {}".format(network_interface))
+            raise BigtopError(
+                u"This machine has no interfaces in CIDR range {}".format(
+                    network_interface))
         else:
             try:
                 ip = netifaces.ifaddresses(network_interface)[2][0]['addr']
             except ValueError:
-                raise BigtopError(u"This machine does not have an interface '{}'".format(network_interface))
+                raise BigtopError(
+                    u"This machine does not have an interface '{}'".format(
+                        network_interface))
             return ip
 
     def install(self):
