@@ -3,15 +3,22 @@ from path import Path
 import mock
 import unittest
 
-from bigtop_harness import BigtopHarness
+from bigtop_harness import BigtopHarness as Harness
 from charmhelpers.core import hookenv, unitdata
 from charms.reactive import set_state, is_state, remove_state
 
-from charms.layer.apache_bigtop_base import (
-    Bigtop, get_hadoop_version, get_layer_opts, get_fqdn, BigtopError)
+with Harness.patch_imports('charms.layer.options'):
+    from charms.layer.apache_bigtop_base import (
+        Bigtop,
+        get_hadoop_version,
+        get_layer_opts,
+        get_fqdn,
+        BigtopError,
+        java_home
+    )
 
 
-class TestBigtopUnit(BigtopHarness):
+class TestBigtopUnit(Harness):
     '''
     Unit tests for Bigtop class.
 
@@ -343,7 +350,7 @@ class TestBigtopUnit(BigtopHarness):
         # self.assertEqual(ip, '192.168.1.238')
 
 
-class TestHelpers(BigtopHarness):
+class TestHelpers(Harness):
 
     @unittest.skip('noop')
     def test_get_hadoop_version(self):
@@ -374,3 +381,50 @@ class TestHelpers(BigtopHarness):
                 'foo'.encode('utf-8'),]:
             mock_sub.check_output.return_value = s
             self.assertEqual(get_fqdn(), 'foo')
+
+class TestJavaHome(Harness):
+
+    @mock.patch('charms.layer.apache_bigtop_base.unitdata.kv')
+    def test_java_home_default(self, mock_unitdata):
+        '''
+        Verify that we do the right thing when java home is set in a
+        relation.
+
+        '''
+        mock_unitdata.return_value = {'java_home': 'foo'}
+
+        self.assertEqual(java_home(), 'foo')
+
+    @mock.patch('charms.layer.apache_bigtop_base.layer.options')
+    @mock.patch('charms.layer.apache_bigtop_base.unitdata.kv')
+    def test_java_home_none(self, mock_unitdata, mock_options):
+        '''
+        Verify that we handle the situation where we have no java home.
+
+        '''
+        mock_unitdata.return_value = {}
+        mock_options.return_value = {}
+
+        self.assertEqual(java_home(), None)
+
+    @mock.patch('charms.layer.apache_bigtop_base.subprocess.check_output')
+    @mock.patch('charms.layer.apache_bigtop_base.layer.options')
+    @mock.patch('charms.layer.apache_bigtop_base.unitdata.kv')
+    def test_java_home_options(self, mock_unitdata, mock_options, mock_sub):
+        '''
+        Verify that we do the right thing when bigtop_jdk is set in
+        options.
+
+        '''
+        mock_unitdata.return_value = {}
+        mock_options.return_value = {'bigtop_jdk': 'foo'}
+
+        # Subprocess should return a list of directories and files,
+        # one of whic hends in '/bin'
+        mock_sub.return_value = '''
+/foo/bar/baz
+/foo/bar/bin
+/foo/bar/qux
+'''.encode('utf-8')
+
+        self.assertEqual('/foo/bar', java_home())

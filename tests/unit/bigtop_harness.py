@@ -3,6 +3,7 @@ import mock
 import os
 import sys
 import unittest
+from contextlib import contextmanager
 
 
 class BigtopHarness(unittest.TestCase):
@@ -10,6 +11,32 @@ class BigtopHarness(unittest.TestCase):
         'charms.layer.apache_bigtop_base.layer',
         'apache_bigtop_base.hookenv'
     ]
+
+    @classmethod
+    @contextmanager
+    def patch_imports(*to_mock):
+        '''
+        Given a list of references to modules, in dot format, I'll add a
+        mock object to sys.modules corresponding to that reference. When
+        this context handler exits, I'll clean up the references.
+
+        '''
+        if type(to_mock[0]) is list:
+            to_mock = to_mock[0]
+
+        refs = {}
+
+        for ref in to_mock:
+            mock_mod = mock.Mock()
+            refs[ref] = mock_mod
+            sys.modules[ref] = mock_mod
+
+        try:
+            yield refs
+        finally:
+            pass
+            #for ref in to_mock:
+                #del sys.modules[ref]
 
     def setUp(self):
         '''Mock out many things.'''
@@ -34,7 +61,10 @@ class BigtopHarness(unittest.TestCase):
     def last_status(self):
         '''Helper for mocked out status list.'''
 
-        return self.statuses[-1]
+        if self.statuses:
+            return self.statuses[-1]
+        else:
+            return (None, None)
 
     @classmethod
     def tearDownClass(cls):

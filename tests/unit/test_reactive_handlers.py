@@ -8,21 +8,35 @@ from charms.reactive import set_state, remove_state, is_state
 from charms.reactive.bus import get_state
 from charms.reactive.helpers import data_changed
 
-from bigtop_harness import BigtopHarness
+#from bigtop_harness import BigtopHarness as Harness
+from charms.unit import Harness
 
-from apache_bigtop_base import missing_java, fetch_bigtop, set_java_home
+with Harness.patch_imports('charms.layer.options'):
+    from apache_bigtop_base import missing_java, fetch_bigtop, set_java_home
 
 
-class TestMissingJava(BigtopHarness):
+class TestMissingJava(Harness):
     '''tests for our missing_java reactive handler.'''
 
-    def test_missing_java(self):
+    @mock.patch('apache_bigtop_base.options')
+    def test_missing_java(self, options_mock):
         '''
         Test to verify that our missing_java function kicks us into a
         'waiting' state if 'java.joined' is set, or tells us that
         we're blocked if it is not.
 
+        In the case of bigtop_jdk being set, verify that we instead
+        set the bigtop_jdk state, and set no status.
+
         '''
+        options_mock.return_value = {'bigtop_jdk': 'foo'}
+
+        missing_java()
+        self.assertTrue(is_state('bigtop_jdk'))
+        self.assertFalse(self.last_status[0])
+
+        options_mock.return_value = {'bigtop_jdk': ''}
+
         set_state('some.state')
         missing_java()
         self.assertEqual(self.last_status[0], 'blocked')
@@ -35,8 +49,7 @@ class TestMissingJava(BigtopHarness):
         missing_java()
         self.assertEqual(self.last_status[0], 'blocked')
 
-
-class TestFetchBigtop(BigtopHarness):
+class TestFetchBigtop(Harness):
     '''
     Test the fetch_bigtop reactive handler.
 
@@ -82,7 +95,7 @@ class TestFetchBigtop(BigtopHarness):
         self.assertEqual(self.last_status[0], 'waiting')
         self.assertTrue('checksum error' in self.last_status[1])
 
-class TestJavaHome(BigtopHarness):
+class TestJavaHome(Harness):
     '''Tests for our set_java_home reactive handler.'''
 
     @mock.patch('apache_bigtop_base.utils')

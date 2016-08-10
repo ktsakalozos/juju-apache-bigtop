@@ -213,16 +213,21 @@ class Bigtop(object):
             roles = [roles]
         overrides = overrides or {}
         site_data = yaml.load(self.site_yaml.text())
+        # Possibly tell Bigtop to install Java, as opposed to relying
+        # on the operator to relate us to the openjdk charm.
+        bigtop_jdk = self.options.get('bigtop_jdk')
 
         # define common defaults
         hostname_check = unitdata.kv().get('reverse_dns_ok')
         site_data.update({
             'bigtop::bigtop_repo_uri': self.bigtop_apt,
-            'bigtop::jdk_preinstalled': True,
+            'bigtop::jdk_preinstalled': not bigtop_jdk,
             'hadoop::hadoop_storage_dirs': ['/data/1', '/data/2'],
             'hadoop::common_yarn::yarn_nodemanager_vmem_check_enabled': False,
             'hadoop::common_hdfs::namenode_datanode_registration_ip_hostname_check': hostname_check,
         })
+        if bigtop_jdk:
+            site_data['bigtop::jdk_package_name'] = bigtop_jdk
 
         # update based on configuration type (roles vs components)
         roles = set(roles) | set(site_data.get('bigtop::roles', []))
@@ -313,9 +318,9 @@ class Bigtop(object):
                          'bigtop-deploy/puppet/manifests/site.pp')
 
         # Do any post-puppet config on the generated config files.
-        java_home = unitdata.kv().get('java_home')
         utils.re_edit_in_place('/etc/default/bigtop-utils', {
-            r'(# )?export JAVA_HOME.*': 'export JAVA_HOME={}'.format(java_home),
+            r'(# )?export JAVA_HOME.*': 'export JAVA_HOME={}'.format(
+                java_home()),
         })
 
     def check_hdfs_setup(self):
@@ -376,7 +381,7 @@ class Bigtop(object):
         with chdir(self.bigtop_base):
             try:
                 utils.run_as('ubuntu', './gradlew', *gradlew_args,
-                             env={'TERM': 'dumb'})
+                             env={'TERM': 'dumb', 'JAVA_HOME': java_home()})
                 smoke_out = 'success'
             except subprocess.CalledProcessError as e:
                 smoke_out = e.output
@@ -384,10 +389,10 @@ class Bigtop(object):
 
 
 def get_hadoop_version():
-    java_home = unitdata.kv().get('java_home')
-    if not java_home:
+    jhome = java_home()
+    if not jhome:
         return None
-    os.environ['JAVA_HOME'] = java_home
+    os.environ['JAVA_HOME'] = jhome
     try:
         hadoop_out = subprocess.check_output(['hadoop', 'version']).decode()
     except FileNotFoundError:
@@ -401,6 +406,30 @@ def get_hadoop_version():
                     hookenv.ERROR)
         return None
     return parts[1]
+
+
+def java_home():
+    '''Figure out where Java lives.'''
+
+    # If we've setup and related the openjdk charm, just use the
+    # reference stored in juju.
+    java_home = unitdata.kv().get('java_home')
+
+    # Otherwise, check to see if we've asked bigtop to install java.
+    options = layer.options('apache-bigtop-base')
+    if java_home is None and options.get('bigtop_jdk'):
+        # Ask dpkg where it installed the package that we specified in
+        # options['bigtop_jdk'].
+        files = subprocess.check_output(
+            ["dpkg-query", "-L", options['bigtop_jdk']])
+        for line in files.decode('utf-8').split(os.linesep):
+            if line.endswith('bin'):
+                # The directory one level above 'bin' is the java
+                # home directory.
+                java_home = line[:-4]
+                break
+
+    return java_home
 
 
 def get_layer_opts():
