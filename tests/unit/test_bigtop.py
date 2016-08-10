@@ -3,15 +3,21 @@ from path import Path
 import mock
 import unittest
 
-from bigtop_harness import BigtopHarness
+from bigtop_harness import Harness
 from charmhelpers.core import hookenv, unitdata
 from charms.reactive import set_state, is_state, remove_state
 
 from charms.layer.apache_bigtop_base import (
-    Bigtop, get_hadoop_version, get_layer_opts, get_fqdn, BigtopError)
+    Bigtop,
+    get_hadoop_version,
+    get_layer_opts,
+    get_fqdn,
+    BigtopError,
+    java_home
+)
 
 
-class TestBigtopUnit(BigtopHarness):
+class TestBigtopUnit(Harness):
     '''
     Unit tests for Bigtop class.
 
@@ -39,6 +45,33 @@ class TestBigtopUnit(BigtopHarness):
 
         '''
 
+    @mock.patch('charms.layer.apache_bigtop_base.utils')
+    @mock.patch('charms.layer.apache_bigtop_base.fetch')
+    @mock.patch('charms.layer.apache_bigtop_base.layer.options')
+    def test_install_java(self, mock_options, mock_fetch, mock_utils):
+        '''
+        Test to verify that we install java when requested.
+
+        '''
+        # Should be noop if bigtop_jdk not set.
+        self.bigtop.options.get.return_value = ''
+        self.bigtop.install_java()
+
+        self.assertFalse(mock_fetch.add_source.called)
+        self.assertFalse(mock_fetch.apt_update.called)
+        self.assertFalse(mock_fetch.apt_install.called)
+        self.assertFalse(mock_utils.re_edit_in_place.called)
+
+        # Should add ppa if we have set bigtop_jdk.
+        self.bigtop.options.get.return_value = 'foo'
+        print("options: {}".format(self.bigtop.options))
+        self.bigtop.install_java()
+
+        self.assertTrue(mock_fetch.add_source.called)
+        self.assertTrue(mock_fetch.apt_update.called)
+        self.assertTrue(mock_fetch.apt_install.called)
+        self.assertTrue(mock_utils.re_edit_in_place.called)
+
     @mock.patch('charms.layer.apache_bigtop_base.socket')
     @mock.patch('charms.layer.apache_bigtop_base.utils')
     @mock.patch('charms.layer.apache_bigtop_base.hookenv')
@@ -55,7 +88,6 @@ class TestBigtopUnit(BigtopHarness):
         # Test the case where we get an exception.
         class MockHError(Exception): pass
         def raise_herror(*args, **kwargs):
-            print('raising error!')
             raise MockHError('test')
         mock_socket.herror = MockHError
         mock_socket.gethostbyaddr = raise_herror
@@ -273,13 +305,15 @@ class TestBigtopUnit(BigtopHarness):
     @mock.patch('charms.layer.apache_bigtop_base.utils.run_as')
     @mock.patch('charms.layer.apache_bigtop_base.chdir')
     @mock.patch('charms.layer.apache_bigtop_base.chownr')
-    def test_run_smoke_tests(self, mock_ownr, mock_chdir, mock_run,
+    @mock.patch('charms.layer.apache_bigtop_base.layer.options')
+    def test_run_smoke_tests(self, mock_options, mock_ownr, mock_chdir, mock_run,
                              mock_sub):
         '''
         Verify that we attempt to run smoke tests correctly, and handle
         exceptions as expected.
 
         '''
+        mock_options.return_value = {}
         # Returns None if bigtop isn't available.
         remove_state('bigtop.available')
         self.assertEqual(None, self.bigtop.run_smoke_tests())
@@ -343,7 +377,7 @@ class TestBigtopUnit(BigtopHarness):
         # self.assertEqual(ip, '192.168.1.238')
 
 
-class TestHelpers(BigtopHarness):
+class TestHelpers(Harness):
 
     @unittest.skip('noop')
     def test_get_hadoop_version(self):
@@ -353,8 +387,9 @@ class TestHelpers(BigtopHarness):
     def test_get_layer_opts(self, mock_options):
         '''Verify that we parse whatever dict we get back from options.'''
 
-        ret = mock_options.return_value = {'foo': 'bar'}
-        self.assertEqual(ret['foo'], 'bar')
+        mock_options.return_value = {'foo': 'bar'}
+        ret = get_layer_opts()
+        self.assertEqual(ret.dist_config['foo'], 'bar')
 
     @mock.patch('charms.layer.apache_bigtop_base.subprocess')
     def test_get_fqdn(self, mock_sub):
@@ -374,3 +409,44 @@ class TestHelpers(BigtopHarness):
                 'foo'.encode('utf-8'),]:
             mock_sub.check_output.return_value = s
             self.assertEqual(get_fqdn(), 'foo')
+
+class TestJavaHome(Harness):
+
+    @mock.patch('charms.layer.apache_bigtop_base.unitdata.kv')
+    def test_java_home_default(self, mock_unitdata):
+        '''
+        Verify that we do the right thing when java home is set in a
+        relation.
+
+        '''
+        mock_unitdata.return_value = {'java_home': 'foo'}
+
+        self.assertEqual(java_home(), 'foo')
+
+    @mock.patch('charms.layer.apache_bigtop_base.unitdata.kv')
+    @mock.patch('charms.layer.apache_bigtop_base.layer.options')
+    def test_java_home_none(self, mock_options, mock_unitdata):
+        '''
+        Verify that we handle the situation where we have no java home.
+
+        '''
+        mock_unitdata.return_value = {}
+        mock_options.return_value = {}
+
+        self.assertEqual(java_home(), None)
+
+    @mock.patch('charms.layer.apache_bigtop_base.os.path')
+    @mock.patch('charms.layer.apache_bigtop_base.unitdata.kv')
+    @mock.patch('charms.layer.apache_bigtop_base.layer.options')
+    def test_java_home_options(self, mock_options, mock_unitdata, mock_path):
+        '''
+        Verify that we do the right thing when bigtop_jdk is set in
+        options.
+
+        '''
+        mock_unitdata.return_value = {}
+        mock_options.return_value = {'install_java': 'foo'}
+        mock_path.exists.return_value = True
+        mock_path.realpath.return_value = '/foo/bar/bin/java'
+
+        self.assertEqual('/foo/bar', java_home())

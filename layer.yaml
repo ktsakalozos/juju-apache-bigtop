@@ -15,6 +15,11 @@ options:
     puppet-version: '3'
     silent: True
 defines:
+  install_java:
+    type: string
+    default: 'openjdk-8-jdk'
+    description: Tell this charm to install java, instead of relying on the openjdk charm. This string should match the name of the java package to be installed.
+
   bigtop_component_list:
     # XXX this should be a proper array of strings
     type: string
