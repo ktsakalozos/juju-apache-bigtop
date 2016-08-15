@@ -8,8 +8,7 @@ from charms.reactive import set_state, remove_state, is_state
 from charms.reactive.bus import get_state
 from charms.reactive.helpers import data_changed
 
-#from bigtop_harness import BigtopHarness as Harness
-from charms.unit import Harness
+from bigtop_harness import BigtopHarness as Harness
 
 with Harness.patch_imports('charms.layer.options'):
     from apache_bigtop_base import missing_java, fetch_bigtop, set_java_home
