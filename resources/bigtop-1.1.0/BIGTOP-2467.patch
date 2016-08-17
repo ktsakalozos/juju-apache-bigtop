@@ -1,4 +1,4 @@
-From 6dd1e673ca5577fa8e4c41dfc8542301c591af36 Mon Sep 17 00:00:00 2001
+From 87e7d01da2558347f9ea64983506d9d8d944a4b2 Mon Sep 17 00:00:00 2001
 From: Pete Vander Giessen <petevg@gmail.com>
 Date: Wed, 8 Jun 2016 16:02:15 -0400
 Subject: [PATCH] BIGTOP-2467 Zookeeper Puppet script does not setup Zookeeper
@@ -10,16 +10,24 @@ in a list. This breaks Zookeeper quorum.
 
 We fix the issue by requiring that puppet take a list comprising
 explicit ids and ip addresses, rather than just a list of ip addresses.
+
+Added backwards compatibilty for old way of doing ensemble.
+
+Should prevent us from breaking existing puppet scripts.
+
+Signed-off-by: Olaf Flebbe <of@oflebbe.de>
 ---
  bigtop-deploy/puppet/hieradata/bigtop/cluster.yaml              | 2 +-
- bigtop-deploy/puppet/modules/hadoop_zookeeper/templates/zoo.cfg | 4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
+ bigtop-deploy/puppet/modules/hadoop_zookeeper/manifests/init.pp | 2 +-
+ bigtop-deploy/puppet/modules/hadoop_zookeeper/templates/zoo.cfg | 8 +++++++-
+ bigtop-deploy/puppet/modules/hadoop_zookeeper/tests/init.pp     | 2 +-
+ 4 files changed, 10 insertions(+), 4 deletions(-)
 
 diff --git a/bigtop-deploy/puppet/hieradata/bigtop/cluster.yaml b/bigtop-deploy/puppet/hieradata/bigtop/cluster.yaml
-index f592f64..45366e3 100644
+index 55f5bcd..60c59b1 100644
 --- a/bigtop-deploy/puppet/hieradata/bigtop/cluster.yaml
 +++ b/bigtop-deploy/puppet/hieradata/bigtop/cluster.yaml
-@@ -147,7 +147,7 @@ qfs::common::chunkserver_client_port: "22000"
+@@ -148,7 +148,7 @@ qfs::common::chunkserver_client_port: "22000"
  
  hadoop_zookeeper::server::myid: "0"
  hadoop_zookeeper::server::ensemble:
@@ -28,21 +36,47 @@ index f592f64..45366e3 100644
  hadoop_zookeeper::server::kerberos_realm: "%{hiera('kerberos::site::realm')}"
  
  # those are only here because they were present as extlookup keys previously
+diff --git a/bigtop-deploy/puppet/modules/hadoop_zookeeper/manifests/init.pp b/bigtop-deploy/puppet/modules/hadoop_zookeeper/manifests/init.pp
+index 6965090..31a609e 100644
+--- a/bigtop-deploy/puppet/modules/hadoop_zookeeper/manifests/init.pp
++++ b/bigtop-deploy/puppet/modules/hadoop_zookeeper/manifests/init.pp
+@@ -61,7 +61,7 @@
+   class server($myid,
+                 $port = "2181",
+                 $datadir = "/var/lib/zookeeper",
+-                $ensemble = ["localhost:2888:3888"],
++                $ensemble = [$myid, "localhost:2888:3888"],
+                 $kerberos_realm = $hadoop_zookeeper::kerberos_realm,
+   ) inherits hadoop_zookeeper {
+     include common
 diff --git a/bigtop-deploy/puppet/modules/hadoop_zookeeper/templates/zoo.cfg b/bigtop-deploy/puppet/modules/hadoop_zookeeper/templates/zoo.cfg
-index 69d98c4..b646e60 100644
+index 69d98c4..e255a0a 100644
 --- a/bigtop-deploy/puppet/modules/hadoop_zookeeper/templates/zoo.cfg
 +++ b/bigtop-deploy/puppet/modules/hadoop_zookeeper/templates/zoo.cfg
-@@ -26,8 +26,8 @@ syncLimit=5
+@@ -26,8 +26,14 @@ syncLimit=5
  dataDir=<%= @datadir %>
  # the port at which the clients will connect
  clientPort=<%= @port %>
 -<% @ensemble.each_with_index do |server,idx| %>
--server.<%= idx %>=<%= server %>
-+<% @ensemble.each do |idx, ip| %>
++<% if !@ensemble[0].nil? && @ensemble[0].length == 2 %>
++  <% @ensemble.each do |idx, ip| %>
 +server.<%= idx %>=<%= ip %>
++  <% end %>
++<% else %>
++  <% @ensemble.each_with_index do |server,idx| %>
+ server.<%= idx %>=<%= server %>
++  <% end %>
  <% end %>
  # purge snapshots every day
  autopurge.purgeInterval=24
--- 
-2.7.4
-
+diff --git a/bigtop-deploy/puppet/modules/hadoop_zookeeper/tests/init.pp b/bigtop-deploy/puppet/modules/hadoop_zookeeper/tests/init.pp
+index 0340f10..7158714 100644
+--- a/bigtop-deploy/puppet/modules/hadoop_zookeeper/tests/init.pp
++++ b/bigtop-deploy/puppet/modules/hadoop_zookeeper/tests/init.pp
+@@ -16,5 +16,5 @@
+ hadoop_zookeeper::client { "zoo visitor": }
+ hadoop_zookeeper::server { "test-oozie-server":
+   myid => "0",
+-  ensemble => ["foo:2888:3888", "bar:2888:3888", "baz:2888:3888"],
++  ensemble => [[0, "foo:2888:3888"], [1, "bar:2888:3888"], [2, "baz:2888:3888"]],
+ }
