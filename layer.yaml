@@ -17,8 +17,8 @@ options:
 defines:
   bigtop_jdk:
     type: string
-    default: ''
-    description: Tell Bigtop to install Java, instead of relying on the openjdk charm. This string should match the name of the java package that Bigtop should install. For Ubuntu trusty, this will typically be 'openjdk-8-jdk'.
+    default: 'openjdk-8-jdk'
+    description: Tell Bigtop to install Java, instead of relying on the openjdk charm. This string should match the name of the java package that Bigtop should install.
 
   bigtop_component_list:
     # XXX this should be a proper array of strings
