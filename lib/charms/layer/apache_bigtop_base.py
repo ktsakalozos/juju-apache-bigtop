@@ -1,4 +1,5 @@
 import os
+import platform
 import socket
 import subprocess
 import yaml
@@ -117,8 +118,11 @@ class Bigtop(object):
             # noop if we are setting up the openjdk relation.
             return
 
-        fetch.add_source("ppa:openjdk-r/ppa")
-        fetch.apt_update()
+        _, _, series = platform.dist()
+        if series == 'trusty':
+            # No Java 8 on trusty
+            fetch.add_source("ppa:openjdk-r/ppa")
+            fetch.apt_update()
         fetch.apt_install(java_package)
 
         utils.re_edit_in_place('/etc/environment', {
