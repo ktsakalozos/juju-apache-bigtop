@@ -1,5 +1,4 @@
 import os
-import platform
 import socket
 import subprocess
 import yaml
