@@ -45,17 +45,17 @@ class TestBigtopUnit(Harness):
 
         '''
 
-    @mock.patch('charms.layer.apache_bigtop_base.platform.dist')
+    @mock.patch('charms.layer.apache_bigtop_base.lsb_release')
     @mock.patch('charms.layer.apache_bigtop_base.utils')
     @mock.patch('charms.layer.apache_bigtop_base.fetch')
     @mock.patch('charms.layer.apache_bigtop_base.layer.options')
     def test_install_java(self, mock_options, mock_fetch,
-                          mock_utils, mock_dist):
+                          mock_utils, mock_lsb_release):
         '''
         Test to verify that we install java when requested.
 
         '''
-        mock_dist.return_value = ('Ubuntu', '16.04', 'xenial')
+        mock_lsb_release.return_value = {'DISTRIB_CODENAME': 'xenial'}
 
         # Should be noop if bigtop_jdk not set.
         self.bigtop.options.get.return_value = ''
@@ -77,7 +77,7 @@ class TestBigtopUnit(Harness):
         self.assertTrue(mock_utils.re_edit_in_place.called)
 
         # On trusty, should add a ppa so that we can install Java 8.
-        mock_dist.return_value = ('Ubuntu', '14.04', 'trusty')
+        mock_lsb_release.return_value = {'DISTRIB_CODENAME': 'trusty'}
         self.bigtop.install_java()
         self.assertTrue(mock_fetch.add_source.called)
         self.assertTrue(mock_fetch.apt_update.called)
@@ -317,8 +317,8 @@ class TestBigtopUnit(Harness):
     @mock.patch('charms.layer.apache_bigtop_base.chdir')
     @mock.patch('charms.layer.apache_bigtop_base.chownr')
     @mock.patch('charms.layer.apache_bigtop_base.layer.options')
-    def test_run_smoke_tests(self, mock_options, mock_ownr, mock_chdir, mock_run,
-                             mock_sub):
+    def test_run_smoke_tests(self, mock_options, mock_ownr, mock_chdir,
+                             mock_run, mock_sub):
         '''
         Verify that we attempt to run smoke tests correctly, and handle
         exceptions as expected.

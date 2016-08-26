@@ -15,7 +15,7 @@ from charmhelpers.fetch.archiveurl import ArchiveUrlFetchHandler
 from charmhelpers import fetch
 from jujubigdata import utils
 from charmhelpers.core import hookenv, unitdata
-from charmhelpers.core.host import chdir, chownr
+from charmhelpers.core.host import chdir, chownr, lsb_release
 from charms.reactive import when, set_state, remove_state, is_state
 from charms.reactive.helpers import data_changed
 
@@ -119,8 +119,7 @@ class Bigtop(object):
             # noop if we are setting up the openjdk relation.
             return
 
-        _, _, series = platform.dist()
-        if series == 'trusty':
+        if lsb_release()['DISTRIB_CODENAME'] == 'trusty':
             # No Java 8 on trusty
             fetch.add_source("ppa:openjdk-r/ppa")
             fetch.apt_update()
