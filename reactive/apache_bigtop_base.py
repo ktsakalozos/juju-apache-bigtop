@@ -1,5 +1,5 @@
 from charms.reactive import when, when_any, when_not, when_none
-from charms.reactive import RelationBase, set_state
+from charms.reactive import RelationBase, set_state, is_state
 from charms.reactive.helpers import data_changed, any_states
 from charmhelpers.core import hookenv, unitdata
 from charmhelpers.core.host import ChecksumError
@@ -48,3 +48,9 @@ def set_java_home():
         utils.re_edit_in_place('/etc/environment', {
             r'#? *JAVA_HOME *=.*': 'JAVA_HOME={}'.format(java_home),
         }, append_non_matches=True)
+
+        # If we've potentially setup services with the previous
+        # version of Java, set a flag that a layer can use to trigger
+        # a restart of those services.
+        if is_state('bigtop.available'):
+            set_state('java.changed')

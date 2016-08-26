@@ -106,6 +106,8 @@ class TestJavaHome(Harness):
         mock_java.java_home.return_value = 'foo'
         mock_java.java_version.return_value = 'bar'
         mock_relation_base.from_state.return_value = mock_java
+        remove_state('bigtop.available')    # This might have been set
+                                            # by previous tests.
 
         data_changed('java_home', 'foo')  # Prime data changed
 
@@ -120,3 +122,16 @@ class TestJavaHome(Harness):
         set_java_home()
 
         self.assertTrue(mock_utils.re_edit_in_place.called)
+
+
+        # Verify that we set the java.changed flag when appropriate.
+
+        # Bigtop is available, but java home not changed
+        set_state('bigtop.available')
+        set_java_home()
+        self.assertFalse(is_state('java.changed'))
+
+        # Bigtop is available, and java home has changed
+        mock_java.java_home.return_value = 'qux'
+        set_java_home()
+        self.assertTrue(is_state('java.changed'))

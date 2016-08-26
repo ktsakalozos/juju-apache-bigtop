@@ -17,6 +17,7 @@ from jujubigdata import utils
 from charmhelpers.core import hookenv, unitdata
 from charmhelpers.core.host import chdir, chownr
 from charms.reactive import when, set_state, remove_state, is_state
+from charms.reactive.helpers import data_changed
 
 
 class BigtopError(Exception):
@@ -125,8 +126,11 @@ class Bigtop(object):
             fetch.apt_update()
         fetch.apt_install(java_package)
 
+        java_home_ = java_home()
+        data_changed('java_home', java_home_)  # Prime data changed
+
         utils.re_edit_in_place('/etc/environment', {
-            r'#? *JAVA_HOME *=.*': 'JAVA_HOME={}'.format(java_home()),
+            r'#? *JAVA_HOME *=.*': 'JAVA_HOME={}'.format(java_home_),
         }, append_non_matches=True)
 
     def pin_bigtop_packages(self):
