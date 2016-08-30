@@ -124,14 +124,14 @@ class TestJavaHome(Harness):
         self.assertTrue(mock_utils.re_edit_in_place.called)
 
 
-        # Verify that we set the java.changed flag when appropriate.
+        # Verify that we set the bigtop.java.changed flag when appropriate.
 
         # Bigtop is available, but java home not changed
         set_state('bigtop.available')
         set_java_home()
-        self.assertFalse(is_state('java.changed'))
+        self.assertFalse(is_state('bigtop.java.changed'))
 
         # Bigtop is available, and java home has changed
         mock_java.java_home.return_value = 'qux'
         set_java_home()
-        self.assertTrue(is_state('java.changed'))
+        self.assertTrue(is_state('bigtop.java.changed'))

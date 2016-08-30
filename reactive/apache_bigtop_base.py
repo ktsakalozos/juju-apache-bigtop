@@ -53,4 +53,4 @@ def set_java_home():
         # version of Java, set a flag that a layer can use to trigger
         # a restart of those services.
         if is_state('bigtop.available'):
-            set_state('java.changed')
+            set_state('bigtop.java.changed')
