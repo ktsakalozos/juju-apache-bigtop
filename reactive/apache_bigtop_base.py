@@ -1,4 +1,4 @@
-from charms.reactive import when, when_any, when_not, when_none
+from charms.reactive import when_any, when_not, when_none
 from charms.reactive import RelationBase, set_state, is_state
 from charms.reactive.helpers import data_changed, any_states
 from charmhelpers.core import hookenv, unitdata
@@ -9,7 +9,6 @@ from charms.layer.apache_bigtop_base import Bigtop
 from jujubigdata import utils
 
 
-@when('puppet.available')
 @when_none('java.ready', 'hadoop-plugin.java.ready', 'hadoop-rest.joined')
 def missing_java():
     if layer.options('apache-bigtop-base').get('install_java'):
@@ -20,7 +19,6 @@ def missing_java():
         hookenv.status_set('blocked', 'waiting on relation to java')
 
 
-@when('puppet.available')
 @when_any('java.ready', 'hadoop-plugin.java.ready', 'install_java')
 @when_not('bigtop.available')
 def fetch_bigtop():
