@@ -1,4 +1,5 @@
 import os
+import platform
 import socket
 import subprocess
 import yaml
@@ -39,12 +40,32 @@ class Bigtop(object):
     def __init__(self):
         self.bigtop_dir = '/home/ubuntu/bigtop.release'
         self.options = layer.options('apache-bigtop-base')
-        self.bigtop_version = self.options.get('bigtop_version')
-        self.bigtop_apt = self.options.get(
-            'bigtop_repo-{}'.format(utils.cpu_arch()))
-        self._bigtop_base = Path(self.bigtop_dir) / self.bigtop_version
-        self._site_yaml = self.bigtop_base / self.options.get(
-            'bigtop_hiera_siteyaml')
+        self.bigtop_version = self.options['bigtop_version']
+        self._bigtop_base = Path(self.bigtop_dir) / 'bigtop-{}'.format(
+            self.bigtop_version)
+        self._site_yaml = Path(self.bigtop_base) / self.options[
+            'bigtop_hiera_siteyaml']
+
+        dist_name, _, dist_series = platform.linux_distribution()
+        # NB: xenial repo is not currently available, and ppc64le only works
+        # with vivid. Force vivid on ppc and trusty on everyone else for now:
+        #   http://paste.ubuntu.com/18185418/
+        repo_arch = utils.cpu_arch()
+        if repo_arch == "ppc64le":
+            dist_series = "vivid"
+            # The 'le' and 'el' are swapped due to historical debian awfulness.
+            #   https://lists.debian.org/debian-powerpc/2014/08/msg00042.html
+            repo_arch = "ppc64el"
+        else:
+            dist_series = "trusty"
+        # Substitute params in the configured option. It's ok if any of these
+        # params (version, dist, series, arch) are missing.
+        self.bigtop_apt = self.options['bigtop_repo_url'].format(
+            version=self.bigtop_version,
+            dist=dist_name.lower(),
+            series=dist_series.lower(),
+            arch=repo_arch
+        )
 
     def get_ip_for_interface(self, network_interface):
         """
@@ -96,7 +117,6 @@ class Bigtop(object):
         """
         Tell Ubuntu to use the Bigtop repo where possible, so that we
         don't actually fetch newer packages from universe.
-
         """
         origin = urlparse(self.bigtop_apt).netloc
 
@@ -120,7 +140,7 @@ class Bigtop(object):
 
     def fetch_bigtop_release(self):
         # download Bigtop release; unpack the recipes
-        bigtop_url = self.options.get('bigtop_release_url')
+        bigtop_url = self.options['bigtop_release_url']
         Path(self.bigtop_dir).rmtree_p()
         au = ArchiveUrlFetchHandler()
         au.install(bigtop_url, self.bigtop_dir)
@@ -132,7 +152,7 @@ class Bigtop(object):
 
     def apply_patches(self):
         charm_dir = Path(hookenv.charm_dir())
-        for patch in sorted(glob('resources/{}/*.patch'.format(self.bigtop_version))):
+        for patch in sorted(glob('resources/bigtop-{}/*.patch'.format(self.bigtop_version))):
             with chdir("{}".format(self.bigtop_base)):
                 utils.run_as('root', 'patch', '-p1', '-s', '-i', charm_dir / patch)
 
@@ -140,8 +160,8 @@ class Bigtop(object):
         """
         Render the ``hiera.yaml`` file with the correct path to our ``site.yaml`` file.
         """
-        hiera_src = self.bigtop_base / self.options.get('bigtop_hiera_config')
-        hiera_dst = Path(self.options.get('bigtop_hiera_path'))
+        hiera_src = Path(self.bigtop_base) / self.options['bigtop_hiera_config']
+        hiera_dst = Path(self.options['bigtop_global_hiera'])
 
         # read template defaults
         hiera_yaml = yaml.load(hiera_src.text())

@@ -23,8 +23,10 @@ defines:
 
   bigtop_version:
     type: string
-    default: 'bigtop-1.1.0'
-    description: 'Default version string of Bigtop release. Affects the location of Hiera bits and Puppet recipes'
+    default: '1.1.0'
+    description: |
+        Bigtop release version. Affects the location of Hiera bits, Puppet
+        recipes, and repository used for installing packages.
 
   bigtop_release_url:
     type: string
@@ -34,17 +36,17 @@ defines:
         This points to the official Apache Bigtop releases on of the ASF mirrors.
         The source code is needed in order to get access to project's Puppet recipes
 
-  bigtop_repo-x86_64:
+  bigtop_repo_url:
     type: string
-    default: 'http://bigtop-repos.s3.amazonaws.com/releases/1.1.0/ubuntu/trusty/x86_64'
-    description: URL to release apt repo for x86_64 platform
+    default: 'http://bigtop-repos.s3.amazonaws.com/releases/{version}/{dist}/{series}/{arch}'
+    description: |
+        Apache Bigtop repo URL used to install Bigtop packages. The version
+        dist, series, and arch will be substituted based on the platform and
+        configuration at deployment time. You may specify a URL that omits
+        these special keys; they will be ignored if not present during
+        substitution.
 
-  bigtop_repo-ppc64el:
-    type: string
-    default: 'http://bigtop-repos.s3.amazonaws.com/releases/1.1.0/ubuntu/vivid/ppc64el'
-    description: URL to release apt repo for ppc64el platform
-
-  bigtop_hiera_path:
+  bigtop_global_hiera:
     type: string
     default: '/etc/puppet/hiera.yaml'
     description: 'Hiera global configuration file'
@@ -52,12 +54,12 @@ defines:
   bigtop_hiera_config:
     type: string
     default: 'bigtop-deploy/puppet/hiera.yaml'
-    description: 'Hiera Bigtop config'
+    description: 'Hiera Bigtop config file, relative to the bigtop src dir'
 
   bigtop_hiera_siteyaml:
     type: string
     default: 'bigtop-deploy/puppet/hieradata/site.yaml'
-    description: 'Hiera Bigtop config'
+    description: 'Hiera Bigtop site yaml, relative to the bigotp src dir'
 
   bigtop_smoketest_components:
     type: array
