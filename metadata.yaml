@@ -7,3 +7,4 @@ provides:
   java:
     interface: java
     scope: container
+series: ["xenial"]

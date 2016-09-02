@@ -1,6 +1,5 @@
 includes:
   - 'layer:basic'
-  - 'layer:puppet-agent'
   - 'interface:java'
 ignore:
   - 'tests/unit'
@@ -10,10 +9,8 @@ options:
   basic:
     packages:
       - dphys-swapfile
+      - puppet-common
       - unzip
-  puppet-agent:
-    puppet-version: '3'
-    silent: True
 defines:
   install_java:
     type: string
