@@ -12,10 +12,12 @@ from path import Path
 
 from charms import layer
 from charmhelpers.fetch.archiveurl import ArchiveUrlFetchHandler
+from charmhelpers import fetch
 from jujubigdata import utils
 from charmhelpers.core import hookenv, unitdata
-from charmhelpers.core.host import chdir, chownr
+from charmhelpers.core.host import chdir, chownr, lsb_release
 from charms.reactive import when, set_state, remove_state, is_state
+from charms.reactive.helpers import data_changed
 
 
 class BigtopError(Exception):
@@ -74,11 +76,19 @@ class Bigtop(object):
 
         @param str network_interface: either the name of the
         interface, or a CIDR range, in which we expect the interface's
-        ip to fall.
+        ip to fall. Also accepts 0.0.0.0 (and variants, like 0/0) as a
+        special case, which will simply return what you passed in.
 
         """
+        if network_interface.startswith('0') or network_interface == '::':
+            # Allow users to reset the charm to listening on any
+            # interface.  Allow operators to specify this however they
+            # wish (0.0.0.0, ::, 0/0, etc.).
+            return network_interface
+
         # Is this a CIDR range, or an interface name?
-        is_cidr = len(network_interface.split(".")) == 4 or len(network_interface.split(":")) == 8
+        is_cidr = len(network_interface.split(".")) == 4 or len(
+            network_interface.split(":")) == 8
 
         if is_cidr:
             interfaces = netifaces.interfaces()
@@ -88,15 +98,20 @@ class Bigtop(object):
                 except KeyError:
                     continue
 
-                if ipaddress.ip_address(ip) in ipaddress.ip_network(network_interface):
+                if ipaddress.ip_address(ip) in ipaddress.ip_network(
+                        network_interface):
                     return ip
 
-            raise BigtopError(u"This machine has no interfaces in CIDR range {}".format(network_interface))
+            raise BigtopError(
+                u"This machine has no interfaces in CIDR range {}".format(
+                    network_interface))
         else:
             try:
                 ip = netifaces.ifaddresses(network_interface)[2][0]['addr']
             except ValueError:
-                raise BigtopError(u"This machine does not have an interface '{}'".format(network_interface))
+                raise BigtopError(
+                    u"This machine does not have an interface '{}'".format(
+                        network_interface))
             return ip
 
     def install(self):
@@ -106,12 +121,36 @@ class Bigtop(object):
         You will then need to call `render_site_yaml` to set up the correct
         configuration and `trigger_puppet` to install the desired components.
         """
+        self.install_java()
         self.pin_bigtop_packages()
         self.check_reverse_dns()
         self.fetch_bigtop_release()
         self.install_puppet_modules()
         self.apply_patches()
         self.render_hiera_yaml()
+
+    def install_java(self):
+        """
+        Possibly install java.
+
+        """
+        java_package = self.options.get("install_java")
+        if not java_package:
+            # noop if we are setting up the openjdk relation.
+            return
+
+        if lsb_release()['DISTRIB_CODENAME'] == 'trusty':
+            # No Java 8 on trusty
+            fetch.add_source("ppa:openjdk-r/ppa")
+            fetch.apt_update()
+        fetch.apt_install(java_package)
+
+        java_home_ = java_home()
+        data_changed('java_home', java_home_)  # Prime data changed
+
+        utils.re_edit_in_place('/etc/environment', {
+            r'#? *JAVA_HOME *=.*': 'JAVA_HOME={}'.format(java_home_),
+        }, append_non_matches=True)
 
     def pin_bigtop_packages(self):
         """
@@ -225,8 +264,8 @@ class Bigtop(object):
         hostname_check = unitdata.kv().get('reverse_dns_ok')
         site_data.update({
             'bigtop::bigtop_repo_uri': self.bigtop_apt,
-            'bigtop::jdk_preinstalled': True,
             'hadoop::hadoop_storage_dirs': ['/data/1', '/data/2'],
+            'bigtop::jdk_preinstalled': True,
             'hadoop::common_yarn::yarn_nodemanager_vmem_check_enabled': False,
             'hadoop::common_hdfs::namenode_datanode_registration_ip_hostname_check': hostname_check,
         })
@@ -320,9 +359,9 @@ class Bigtop(object):
                          'bigtop-deploy/puppet/manifests/site.pp')
 
         # Do any post-puppet config on the generated config files.
-        java_home = unitdata.kv().get('java_home')
         utils.re_edit_in_place('/etc/default/bigtop-utils', {
-            r'(# )?export JAVA_HOME.*': 'export JAVA_HOME={}'.format(java_home),
+            r'(# )?export JAVA_HOME.*': 'export JAVA_HOME={}'.format(
+                java_home()),
         })
 
     def check_hdfs_setup(self):
@@ -383,7 +422,7 @@ class Bigtop(object):
         with chdir(self.bigtop_base):
             try:
                 utils.run_as('ubuntu', './gradlew', *gradlew_args,
-                             env={'TERM': 'dumb'})
+                             env={'TERM': 'dumb', 'JAVA_HOME': java_home()})
                 smoke_out = 'success'
             except subprocess.CalledProcessError as e:
                 smoke_out = e.output
@@ -391,10 +430,10 @@ class Bigtop(object):
 
 
 def get_hadoop_version():
-    java_home = unitdata.kv().get('java_home')
-    if not java_home:
+    jhome = java_home()
+    if not jhome:
         return None
-    os.environ['JAVA_HOME'] = java_home
+    os.environ['JAVA_HOME'] = jhome
     try:
         hadoop_out = subprocess.check_output(['hadoop', 'version']).decode()
     except FileNotFoundError:
@@ -408,6 +447,24 @@ def get_hadoop_version():
                     hookenv.ERROR)
         return None
     return parts[1]
+
+
+def java_home():
+    '''Figure out where Java lives.'''
+
+    # If we've setup and related the openjdk charm, just use the
+    # reference stored in juju.
+    java_home = unitdata.kv().get('java_home')
+
+    # Otherwise, check to see if we've asked bigtop to install java.
+    options = layer.options('apache-bigtop-base')
+    if java_home is None and options.get('install_java'):
+        # Figure out where java got installed. This should work in
+        # both recent Debian and recent Redhat based distros.
+        if os.path.exists('/etc/alternatives/java'):
+            java_home = os.path.realpath('/etc/alternatives/java')[:-9]
+
+    return java_home
 
 
 def get_layer_opts():

@@ -1,24 +1,25 @@
-from charms.reactive import when, when_any, when_not, when_none
-from charms.reactive import RelationBase, set_state
+from charms.reactive import when_any, when_not, when_none
+from charms.reactive import RelationBase, set_state, is_state
 from charms.reactive.helpers import data_changed, any_states
 from charmhelpers.core import hookenv, unitdata
 from charmhelpers.core.host import ChecksumError
 from charmhelpers.fetch import UnhandledSource
+from charms import layer
 from charms.layer.apache_bigtop_base import Bigtop
 from jujubigdata import utils
 
 
-@when('puppet.available')
 @when_none('java.ready', 'hadoop-plugin.java.ready', 'hadoop-rest.joined')
 def missing_java():
-    if any_states('java.joined', 'hadoop-plugin.joined'):
+    if layer.options('apache-bigtop-base').get('install_java'):
+        set_state('install_java')
+    elif any_states('java.joined', 'hadoop-plugin.joined'):
         hookenv.status_set('waiting', 'waiting on java')
     else:
         hookenv.status_set('blocked', 'waiting on relation to java')
 
 
-@when('puppet.available')
-@when_any('java.ready', 'hadoop-plugin.java.ready')
+@when_any('java.ready', 'hadoop-plugin.java.ready', 'install_java')
 @when_not('bigtop.available')
 def fetch_bigtop():
     try:
@@ -45,3 +46,9 @@ def set_java_home():
         utils.re_edit_in_place('/etc/environment', {
             r'#? *JAVA_HOME *=.*': 'JAVA_HOME={}'.format(java_home),
         }, append_non_matches=True)
+
+        # If we've potentially setup services with the previous
+        # version of Java, set a flag that a layer can use to trigger
+        # a restart of those services.
+        if is_state('bigtop.available'):
+            set_state('bigtop.java.changed')
