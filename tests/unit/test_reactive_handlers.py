@@ -1,11 +1,8 @@
 import mock
-import unittest
 
-from charmhelpers.core import unitdata
 from charmhelpers.core.host import ChecksumError
 from charmhelpers.fetch import UnhandledSource
 from charms.reactive import set_state, remove_state, is_state
-from charms.reactive.bus import get_state
 from charms.reactive.helpers import data_changed
 
 from bigtop_harness import Harness
@@ -49,6 +46,7 @@ class TestMissingJava(Harness):
         missing_java()
         self.assertEqual(self.last_status[0], 'blocked')
 
+
 class TestFetchBigtop(Harness):
     '''
     Test the fetch_bigtop reactive handler.
@@ -72,6 +70,7 @@ class TestFetchBigtop(Harness):
     @mock.patch('apache_bigtop_base.hookenv.status_set')
     def test_fetch_bigtop_unhandled_source(self, mock_status):
         mock_status.side_effect = self.status_set
+
         def raise_unhandled(*args, **kwargs):
             raise UnhandledSource('test')
         self.mock_bigtop.install.side_effect = raise_unhandled
@@ -82,6 +81,7 @@ class TestFetchBigtop(Harness):
     @mock.patch('apache_bigtop_base.hookenv.status_set')
     def test_fetch_bigtop_checksum_error(self, mock_status):
         mock_status.side_effect = self.status_set
+
         def raise_checksum(*args, **kwargs):
             raise ChecksumError('test')
 
@@ -90,6 +90,7 @@ class TestFetchBigtop(Harness):
 
         self.assertEqual(self.last_status[0], 'waiting')
         self.assertTrue('checksum error' in self.last_status[1])
+
 
 class TestJavaHome(Harness):
     '''Tests for our set_java_home reactive handler.'''
@@ -122,7 +123,6 @@ class TestJavaHome(Harness):
         set_java_home()
 
         self.assertTrue(mock_utils.re_edit_in_place.called)
-
 
         # Verify that we set the bigtop.java.changed flag when appropriate.
 
