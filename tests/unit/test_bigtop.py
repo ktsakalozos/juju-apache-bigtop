@@ -4,12 +4,11 @@ import mock
 import unittest
 
 from bigtop_harness import Harness
-from charmhelpers.core import hookenv, unitdata
+from charmhelpers.core import unitdata
 from charms.reactive import set_state, is_state, remove_state
 
 from charms.layer.apache_bigtop_base import (
     Bigtop,
-    get_hadoop_version,
     get_layer_opts,
     get_fqdn,
     BigtopError,
@@ -82,7 +81,6 @@ class TestBigtopUnit(Harness):
         self.assertTrue(mock_fetch.add_source.called)
         self.assertTrue(mock_fetch.apt_update.called)
 
-
     @mock.patch('charms.layer.apache_bigtop_base.socket')
     @mock.patch('charms.layer.apache_bigtop_base.utils')
     @mock.patch('charms.layer.apache_bigtop_base.hookenv')
@@ -97,7 +95,9 @@ class TestBigtopUnit(Harness):
         self.assertTrue(unitdata.kv().get('reverse_dns_ok'))
 
         # Test the case where we get an exception.
-        class MockHError(Exception): pass
+        class MockHError(Exception):
+            pass
+
         def raise_herror(*args, **kwargs):
             raise MockHError('test')
         mock_socket.herror = MockHError
@@ -242,7 +242,6 @@ class TestBigtopUnit(Harness):
             config['overrides'] = None
             config['hosts'] = None
 
-
     def test_queue_puppet(self):
         '''Verify that we set the expected 'puppet queued' state.'''
 
@@ -293,9 +292,12 @@ class TestBigtopUnit(Harness):
         errors as expected.
 
         '''
-        class MockException(Exception): pass
+        class MockException(Exception):
+            pass
         mock_sub.CalledProcessError = MockException
-        def mock_raise(*args, **kwargs): raise MockException('foo!')
+
+        def mock_raise(*args, **kwargs):
+            raise MockException('foo!')
 
         for s in ['ubuntu', '   ubuntu  ', 'ubuntu  ', '  ubuntu']:
             mock_run.return_value = s
@@ -340,10 +342,13 @@ class TestBigtopUnit(Harness):
         )
 
         # Should return error message if subprocess raised and Exception.
-        class MockException(Exception): pass
+        class MockException(Exception):
+            pass
         MockException.output = "test output"
         mock_sub.CalledProcessError = MockException
-        def mock_raise(*args, **kwargs): raise MockException('foo!')
+
+        def mock_raise(*args, **kwargs):
+            raise MockException('foo!')
         mock_run.side_effect = mock_raise
 
         self.assertEqual(
@@ -417,9 +422,10 @@ class TestHelpers(Harness):
                 b'foo  ',
                 b'   foo',
                 b'  foo  ',
-                'foo'.encode('utf-8'),]:
+                'foo'.encode('utf-8'), ]:
             mock_sub.check_output.return_value = s
             self.assertEqual(get_fqdn(), 'foo')
+
 
 class TestJavaHome(Harness):
 

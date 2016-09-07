@@ -48,7 +48,6 @@ class Harness(unittest.TestCase):
 
         self.statuses.append((status, message))
 
-
     #
     # Misc Helpers
     #
@@ -59,7 +58,6 @@ class Harness(unittest.TestCase):
 
         '''
         self._log.debug(msg)
-
 
     #
     # init, setUp, tearDown
