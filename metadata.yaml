@@ -2,7 +2,7 @@ name: apache-bigtop-base
 maintainer: Juju Big Data <bigdata@lists.ubuntu.com>
 summary: Support layer for Bigtop-based charms.
 description: Comprises a java interface and Bigtop lib for Python.
-tags: ["bigdata", "apache"]
+tags: ["apache", "bigdata", "bigtop"]
 provides:
   java:
     interface: java
