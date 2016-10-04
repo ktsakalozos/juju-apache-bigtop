@@ -1,38 +1,40 @@
-From be2d2406914d390bc57fde28ba61bdfd8b26160c Mon Sep 17 00:00:00 2001
+From 6240854e3f1c8b24d0bd5c04af59241cded201ba Mon Sep 17 00:00:00 2001
 From: Cory Johns <johnsca@gmail.com>
 Date: Thu, 26 May 2016 15:47:33 -0400
 Subject: [PATCH] BIGTOP-2459: Add option to disable vmem check for NodeManager
 
 ---
  bigtop-deploy/puppet/modules/hadoop/manifests/init.pp       | 1 +
- bigtop-deploy/puppet/modules/hadoop/templates/yarn-site.xml | 5 +++++
- 2 files changed, 6 insertions(+)
+ bigtop-deploy/puppet/modules/hadoop/templates/yarn-site.xml | 7 +++++++
+ 2 files changed, 8 insertions(+)
 
 diff --git a/bigtop-deploy/puppet/modules/hadoop/manifests/init.pp b/bigtop-deploy/puppet/modules/hadoop/manifests/init.pp
-index 90c9505..ff10d7f 100644
+index 69e26bb..8e0de03 100644
 --- a/bigtop-deploy/puppet/modules/hadoop/manifests/init.pp
 +++ b/bigtop-deploy/puppet/modules/hadoop/manifests/init.pp
 @@ -151,6 +151,7 @@
        $container_executor_min_user_id = "499",
        $hadoop_security_authentication = $hadoop::hadoop_security_authentication,
        $kerberos_realm = $hadoop::kerberos_realm,
-+      $yarn_nodemanager_vmem_check_enabled = true,
++      $yarn_nodemanager_vmem_check_enabled = undef,
    ) inherits hadoop {
  
      include common
 diff --git a/bigtop-deploy/puppet/modules/hadoop/templates/yarn-site.xml b/bigtop-deploy/puppet/modules/hadoop/templates/yarn-site.xml
-index 054ae65..12b3e56 100644
+index 054ae65..0b1285e 100644
 --- a/bigtop-deploy/puppet/modules/hadoop/templates/yarn-site.xml
 +++ b/bigtop-deploy/puppet/modules/hadoop/templates/yarn-site.xml
-@@ -175,6 +175,11 @@
+@@ -174,6 +174,13 @@
+     <value>/var/log/hadoop-yarn/apps</value>
    </property>
  
-   <property>
++<% if not @yarn_nodemanager_vmem_check_enabled.nil? -%>
++  <property>
 +    <name>yarn.nodemanager.vmem-check-enabled</name>
 +    <value><%= @yarn_nodemanager_vmem_check_enabled %></value>
 +  </property>
++<% end -%>
 +
-+  <property>
+   <property>
      <description>Classpath for typical applications.</description>
       <name>yarn.application.classpath</name>
-      <value>

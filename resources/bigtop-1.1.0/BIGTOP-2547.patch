@@ -1,0 +1,40 @@
+From 9096d5a54fd8993bcb1e2b2124668d95c3c00d2a Mon Sep 17 00:00:00 2001
+From: Cory Johns <johnsca@gmail.com>
+Date: Mon, 3 Oct 2016 10:43:54 -0400
+Subject: [PATCH] BIGTOP-2547: Don't render ip-hostname-check in hdfs-site.xml
+ if default
+
+---
+ bigtop-deploy/puppet/modules/hadoop/manifests/init.pp       | 2 +-
+ bigtop-deploy/puppet/modules/hadoop/templates/hdfs-site.xml | 2 ++
+ 2 files changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/bigtop-deploy/puppet/modules/hadoop/manifests/init.pp b/bigtop-deploy/puppet/modules/hadoop/manifests/init.pp
+index 69e26bb..89c14f4 100644
+--- a/bigtop-deploy/puppet/modules/hadoop/manifests/init.pp
++++ b/bigtop-deploy/puppet/modules/hadoop/manifests/init.pp
+@@ -228,7 +228,7 @@
+       $hadoop_http_authentication_signature_secret_file = "/etc/hadoop/conf/hadoop-http-authentication-signature-secret",
+       $hadoop_http_authentication_cookie_domain = regsubst($fqdn, "^[^\\.]+\\.", ""),
+       $generate_secrets = $hadoop::generate_secrets,
+-      $namenode_datanode_registration_ip_hostname_check = true,
++      $namenode_datanode_registration_ip_hostname_check = undef,
+   ) inherits hadoop {
+ 
+     $sshfence_keydir  = "$hadoop_ha_sshfence_user_home/.ssh"
+diff --git a/bigtop-deploy/puppet/modules/hadoop/templates/hdfs-site.xml b/bigtop-deploy/puppet/modules/hadoop/templates/hdfs-site.xml
+index 8216eb4..9f3b3a5 100644
+--- a/bigtop-deploy/puppet/modules/hadoop/templates/hdfs-site.xml
++++ b/bigtop-deploy/puppet/modules/hadoop/templates/hdfs-site.xml
+@@ -298,9 +298,11 @@
+ <%   end -%>
+ <% end -%>
+ 
++<% if not @namenode_datanode_registration_ip_hostname_check.nil? -%>
+   <property>
+     <name>dfs.namenode.datanode.registration.ip-hostname-check</name>
+     <value><%= @namenode_datanode_registration_ip_hostname_check %></value>
+   </property>
++<% end -%>
+ 
+ </configuration>
