@@ -394,15 +394,14 @@ class Bigtop(object):
             'hadoop': get_hadoop_version(),
         }
 
-    def run_smoke_tests(self, smoke_components=None, smoke_configs=None):
+    def run_smoke_tests(self, smoke_components=None, smoke_env=None):
         """
         Run the Bigtop smoke tests for given components using the gradle
         wrapper script.
 
         :param list smoke_components: Bigtop components to smoke test
-        :param list configs: Config files sourced prior to running tests
-
-        XXX: deal with the given config files (currently ignored)
+        :param list smoke_env: Dict of required environment variables (merged
+            with /etc/environment)
         """
         if not is_state('bigtop.available'):
             hookenv.log('Bigtop is not ready to run smoke tests')
@@ -411,6 +410,11 @@ class Bigtop(object):
             hookenv.log('Missing Bigtop smoke test component list')
             return None
 
+        # We always need TERM and JAVA_HOME; merge with any user provided dict
+        subprocess_env = {'TERM': 'dumb', 'JAVA_HOME': java_home()}
+        if isinstance(smoke_env, dict):
+            subprocess_env.update(smoke_env)
+
         # Ensure the base dir is owned by ubuntu so we can create a .gradle dir.
         chownr(self.bigtop_base, 'ubuntu', 'ubuntu', chowntopdir=True)
 
@@ -418,11 +422,12 @@ class Bigtop(object):
         comp_args = ['bigtop-tests:smoke-tests:%s:test' % c for c in smoke_components]
         gradlew_args = ['-Psmoke.tests', '--info'] + comp_args
 
-        hookenv.log('Running Bigtop smoke tests with: %s' % gradlew_args)
+        hookenv.log('Bigtop smoke test environment: {}'.format(subprocess_env))
+        hookenv.log('Bigtop smoke test args: {}'.format(gradlew_args))
         with chdir(self.bigtop_base):
             try:
                 utils.run_as('ubuntu', './gradlew', *gradlew_args,
-                             env={'TERM': 'dumb', 'JAVA_HOME': java_home()})
+                             env=subprocess_env)
                 smoke_out = 'success'
             except subprocess.CalledProcessError as e:
                 smoke_out = e.output

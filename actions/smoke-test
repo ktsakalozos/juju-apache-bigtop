@@ -32,8 +32,9 @@ from charms.layer.apache_bigtop_base import Bigtop
 from charms.reactive import is_state
 
 
-def fail(msg, output):
-    hookenv.action_set({'output': output})
+def fail(msg, output=None):
+    if output:
+        hookenv.action_set({'output': output})
     hookenv.action_fail(msg)
     sys.exit()
 
@@ -42,13 +43,12 @@ if not is_state('bigtop.available'):
 
 cfg = layer.options('apache-bigtop-base')
 smoke_components = cfg.get('bigtop_smoketest_components')
-smoke_configs = cfg.get('bigtop_smoketest_configs')
 if not smoke_components:
     fail('No bigtop_smoketest_components found for this charm')
 
 bigtop = Bigtop()
-result = bigtop.run_smoke_tests(smoke_components, smoke_configs)
+result = bigtop.run_smoke_tests(smoke_components)
 if result == 'success':
     hookenv.action_set({'outcome': result})
 else:
-    fail('failed smoke testing: %s' % smoke_components, result)
+    fail('failed smoke testing {}'.format(smoke_components), result)

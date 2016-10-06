@@ -73,14 +73,6 @@ defines:
         smoke-test action. Available components can be found at:
         https://github.com/apache/bigtop/tree/master/bigtop-tests/smoke-tests
 
-  bigtop_smoketest_configs:
-    type: array
-    items: {type: string}
-    description: |
-        A list of files containing environment configuration required by
-        the Bigtop smoke tests configured above. For example,
-        '- /etc/default/hadoop'.
-
   groups:
     description: |
       A list of system groups to be created during setup.
