@@ -379,6 +379,7 @@ class Bigtop(object):
             return False
 
     def setup_hdfs(self):
+        utils.wait_for_hdfs(30)
         # TODO ubuntu user needs to be added to the upstream HDFS formating
         utils.run_as('hdfs', 'hdfs', 'dfs', '-mkdir', '-p', '/user/ubuntu')
         utils.run_as('hdfs', 'hdfs', 'dfs', '-chown', 'ubuntu', '/user/ubuntu')
