@@ -1,18 +1,29 @@
-commit e44891fa6f74c3e7ebabbfb53aa9f957a76a485c
-Author: Pete Vander Giessen <petevg@gmail.com>
-Date:   Tue Jun 14 09:49:16 2016 -0400
+From 0bad86016e87265b8185ddc51e79e684eca7f13f Mon Sep 17 00:00:00 2001
+From: Pete Vander Giessen <petevg@gmail.com>
+Date: Thu, 16 Jun 2016 15:46:50 -0400
+Subject: [PATCH] BIGTOP-2478: Zookeeper does not have any smoke tests (closes
+ #122)
 
-    BIGTOP-2478: Zookeeper does not have any smoke tests
-    
-    These tests are very basic for now. We just run "zkServer.sh status" and
-    verify that the output is reasonable.
-    
-    A lot of the more complex tests require multiple Zookeeper nodes to be
-    running, which is probably outside of the scope of a smoke test.
+These tests are very basic for now. We just run "zkServer.sh status" and
+verify that the output is reasonable.
+
+More complex tests are blocked by either a) needing multiple Zookeeper
+nodes (doesn't really make sense for a smoke test), or b) needing to
+have Zookeeper REST spun up, which Bigtop does not currently do.
+
+Fixed test name.
+
+TestSpark -> TestZookeeper
+---
+ .../smoke-tests/zookeeper/TestZookeeper.groovy     | 66 ++++++++++++++++++++++
+ bigtop-tests/smoke-tests/zookeeper/build.gradle    | 32 +++++++++++
+ 2 files changed, 98 insertions(+)
+ create mode 100644 bigtop-tests/smoke-tests/zookeeper/TestZookeeper.groovy
+ create mode 100644 bigtop-tests/smoke-tests/zookeeper/build.gradle
 
 diff --git a/bigtop-tests/smoke-tests/zookeeper/TestZookeeper.groovy b/bigtop-tests/smoke-tests/zookeeper/TestZookeeper.groovy
 new file mode 100644
-index 0000000..b0e5b37
+index 0000000..28be70a
 --- /dev/null
 +++ b/bigtop-tests/smoke-tests/zookeeper/TestZookeeper.groovy
 @@ -0,0 +1,66 @@
