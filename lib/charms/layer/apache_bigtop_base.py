@@ -123,6 +123,7 @@ class Bigtop(object):
         """
         self.install_java()
         self.pin_bigtop_packages()
+        self.check_localdomain()
         self.check_reverse_dns()
         self.fetch_bigtop_release()
         self.install_puppet_modules()
@@ -165,16 +166,53 @@ class Bigtop(object):
         with open("/etc/apt/preferences.d/bigtop-999", "w") as out_file:
             out_file.write(pin_file)
 
+    def check_localdomain(self):
+        """
+        Override 'facter fqdn' if domainname == 'localdomain'.
+
+        Bigtop puppet scripts rely heavily on 'facter fqdn'. If this machine
+        has a domainname of 'localdomain', we can assume it cannot resolve
+        other units' FQDNs in the deployment. This leads to problems because
+        'foo.localdomain' may not be known to 'bar.localdomain'.
+
+        If this is the case, override 'facter fqdn' by setting an env var
+        so it returns the short hostname instead of 'foo.localdomain'. Short
+        hostnames have proven reliable in 'localdomain' environments.
+
+        We don't use the short hostname in all cases because there are valid
+        uses for FQDNs. In a proper DNS setting, foo.X is valid and different
+        than foo.Y. Only resort to short hostnames when we can reasonably
+        assume DNS is not available (ie, when domainname == localdomain).
+        """
+        if is_localdomain():
+            # NB: facter is on the system because it's a dep of puppet-common
+            host = subprocess.check_output(['facter', 'hostname']).strip().decode()
+            utils.re_edit_in_place('/etc/environment', {
+                r'FACTER_fqdn=.*': 'FACTER_fqdn={}'.format(host),
+            }, append_non_matches=True)
+
     def check_reverse_dns(self):
-        # If we can't reverse resolve the hostname (like on azure), support DN
-        # registration by IP address.
-        # NB: call this *before* any /etc/hosts changes since
-        # gethostbyaddr will not fail if we have an /etc/hosts entry.
+        """
+        Determine if reverse DNS lookups work on a machine.
+
+        Some Hadoop services expect forward and reverse DNS to work.
+        Not all clouds (eg, Azure) offer a working reverse-DNS environment.
+        Additionally, we can assume any machine with a domainname of
+        'localdomain' does not have proper reverse-DNS capabilities. If either
+        of these scenarios are present, set appropriate unit data so we can
+        configure around this limitation.
+
+        NB: call this *before* any /etc/hosts changes since
+        gethostbyaddr will not fail if we have an /etc/hosts entry.
+        """
         reverse_dns_ok = True
-        try:
-            socket.gethostbyaddr(utils.resolve_private_address(hookenv.unit_private_ip()))
-        except socket.herror:
+        if is_localdomain():
             reverse_dns_ok = False
+        else:
+            try:
+                socket.gethostbyaddr(utils.resolve_private_address(hookenv.unit_private_ip()))
+            except socket.herror:
+                reverse_dns_ok = False
         unitdata.kv().set('reverse_dns_ok', reverse_dns_ok)
 
     def fetch_bigtop_release(self):
@@ -278,7 +316,7 @@ class Bigtop(object):
                 'bigtop::roles': sorted(roles),
             })
         else:
-            gw_host = subprocess.check_output(['facter', 'fqdn']).strip().decode()
+            gw_host = get_fqdn()
             cluster_components = self.options.get("bigtop_component_list").split()
             site_data.update({
                 'bigtop::hadoop_gateway_node': gw_host,
@@ -477,4 +515,32 @@ def get_layer_opts():
 
 
 def get_fqdn():
-    return subprocess.check_output(['facter', 'fqdn']).strip().decode()
+    """
+    Return the FQDN as known by 'facter'.
+
+    This must be run with utils.run_as to ensure any /etc/environment changes
+    are honored. We may have overriden 'facter fqdn' with a 'FACTER_fqdn'
+    environment variable (see Bigtop.check_localdomain).
+
+    :returns: Sensible hostname (true FQDN or FACTER_fqdn from /etc/environment)
+    """
+    hostname = utils.run_as('ubuntu',
+                            'facter', 'fqdn', capture_output=True)
+    return hostname.strip()
+
+
+def is_localdomain():
+    """
+    Determine if our domainname is 'localdomain'.
+
+    This method is useful for determining if a machine's domainname is
+    'localdomain' so we can configure applications accordingly.
+
+    :return: True if domainname is 'localdomain'; False otherwise
+    """
+    # NB: facter is on the system because it's a dep of puppet-common
+    domainname = subprocess.check_output(['facter', 'domain']).strip().decode()
+    if domainname == 'localdomain':
+        return True
+    else:
+        return False
