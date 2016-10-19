@@ -1,0 +1,48 @@
+From 6f05bee3deecd8ce8603230d1a16da1e5456a049 Mon Sep 17 00:00:00 2001
+From: Kevin W Monroe <kevin.monroe@canonical.com>
+Date: Mon, 17 Oct 2016 17:38:08 +0000
+Subject: [PATCH] add rpc/http/https ports to template for non-HA mode
+
+---
+ .../puppet/modules/hadoop/templates/hdfs-site.xml   | 21 ++++++++++++++++++++-
+ 1 file changed, 20 insertions(+), 1 deletion(-)
+
+diff --git a/bigtop-deploy/puppet/modules/hadoop/templates/hdfs-site.xml b/bigtop-deploy/puppet/modules/hadoop/templates/hdfs-site.xml
+index 9f3b3a5..626537f 100644
+--- a/bigtop-deploy/puppet/modules/hadoop/templates/hdfs-site.xml
++++ b/bigtop-deploy/puppet/modules/hadoop/templates/hdfs-site.xml
+@@ -86,7 +86,25 @@
+   </property>
+ 
+ <%   end -%>
+-<% elsif @hadoop_security_authentication == "kerberos" -%>
++<% else -%>
++  <!-- non HA -->
++
++  <property>
++    <name>dfs.namenode.rpc-address</name>
++    <value><%= namenode_hosts[0] %>:<%= @hadoop_namenode_port %></value>
++  </property>
++
++  <property>
++    <name>dfs.namenode.http-address</name>
++    <value><%= namenode_hosts[0] %>:<%= @hadoop_namenode_http_port %></value>
++  </property>
++
++  <property>
++    <name>dfs.namenode.https-address</name>
++    <value><%= namenode_hosts[0] %>:<%= @hadoop_namenode_https_port %></value>
++  </property>
++
++<%   if @hadoop_security_authentication == "kerberos" -%>
+   <property>
+     <name>dfs.block.access.token.enable</name>
+     <value>true</value>
+@@ -175,6 +193,7 @@
+     <value>host/_HOST@<%= @kerberos_realm %></value>
+   </property>
+ 
++<%   end -%>
+ <% end -%>
+   <property>
+     <name>dfs.datanode.data.dir</name>

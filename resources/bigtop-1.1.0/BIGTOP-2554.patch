@@ -1,0 +1,147 @@
+From e109f1e9af2c14f21ad23ffb5aa829f6d84007f9 Mon Sep 17 00:00:00 2001
+From: Kevin W Monroe <kevin.monroe@canonical.com>
+Date: Mon, 17 Oct 2016 19:28:51 +0000
+Subject: [PATCH] add bind-host support for NN/RM
+
+---
+ .../puppet/modules/hadoop/manifests/init.pp        |  4 +++
+ .../puppet/modules/hadoop/templates/hdfs-site.xml  | 42 ++++++++++++++++++++++
+ .../puppet/modules/hadoop/templates/yarn-site.xml  | 14 ++++++++
+ 3 files changed, 60 insertions(+)
+
+diff --git a/bigtop-deploy/puppet/modules/hadoop/manifests/init.pp b/bigtop-deploy/puppet/modules/hadoop/manifests/init.pp
+index 91fb4d0..732fc75 100644
+--- a/bigtop-deploy/puppet/modules/hadoop/manifests/init.pp
++++ b/bigtop-deploy/puppet/modules/hadoop/manifests/init.pp
+@@ -136,6 +136,7 @@
+       $hadoop_rm_port = "8032",
+       $hadoop_rm_admin_port = "8033",
+       $hadoop_rm_webapp_port = "8088",
++      $hadoop_rm_bind_host = undef,
+       $hadoop_rt_port = "8025",
+       $hadoop_sc_port = "8030",
+       $yarn_log_server_url = undef,
+@@ -192,8 +193,11 @@
+       $hadoop_dfs_namenode_plugins = "",
+       $hadoop_namenode_host = $fqdn,
+       $hadoop_namenode_port = "8020",
++      $hadoop_namenode_bind_host = undef,
+       $hadoop_namenode_http_port = "50070",
++      $hadoop_namenode_http_bind_host = undef,
+       $hadoop_namenode_https_port = "50470",
++      $hadoop_namenode_https_bind_host = undef,
+       $hdfs_data_dirs = suffix($hadoop::hadoop_storage_dirs, "/hdfs"),
+       $hdfs_shortcut_reader = undef,
+       $hdfs_support_append = undef,
+diff --git a/bigtop-deploy/puppet/modules/hadoop/templates/hdfs-site.xml b/bigtop-deploy/puppet/modules/hadoop/templates/hdfs-site.xml
+index 626537f..5440574 100644
+--- a/bigtop-deploy/puppet/modules/hadoop/templates/hdfs-site.xml
++++ b/bigtop-deploy/puppet/modules/hadoop/templates/hdfs-site.xml
+@@ -45,16 +45,37 @@
+     <value><%= host %>:<%= @hadoop_namenode_port %></value>
+   </property>
+  
++<%     if not @hadoop_namenode_bind_host.nil? -%>
++  <property>
++    <name>dfs.namenode.rpc-bind-host.<%= @nameservice_id %>.nn<%= idx+1 %></name>
++    <value><%= @hadoop_namenode_bind_host %></value>
++  </property>
++
++<%     end -%>
+   <property>
+     <name>dfs.namenode.http-address.<%= @nameservice_id %>.nn<%= idx+1 %></name>
+     <value><%= host %>:<%= @hadoop_namenode_http_port %></value>
+   </property>
+ 
++<%     if not @hadoop_namenode_http_bind_host.nil? -%>
++  <property>
++    <name>dfs.namenode.http-bind-host.<%= @nameservice_id %>.nn<%= idx+1 %></name>
++    <value><%= @hadoop_namenode_http_bind_host %></value>
++  </property>
++
++<%     end -%>
+   <property>
+     <name>dfs.namenode.https-address.<%= @nameservice_id %>.nn<%= idx+1 %></name>
+     <value><%= host %>:<%= @hadoop_namenode_https_port %></value>
+   </property>
+ 
++<%     if not @hadoop_namenode_https_bind_host.nil? -%>
++  <property>
++    <name>dfs.namenode.https-bind-host.<%= @nameservice_id %>.nn<%= idx+1 %></name>
++    <value><%= @hadoop_namenode_https_bind_host %></value>
++  </property>
++
++<%     end -%>
+ <%   end -%>
+ <%   if @shared_edits_dir -%>
+   <property>
+@@ -94,16 +115,37 @@
+     <value><%= namenode_hosts[0] %>:<%= @hadoop_namenode_port %></value>
+   </property>
+ 
++<%   if not @hadoop_namenode_bind_host.nil? -%>
++  <property>
++    <name>dfs.namenode.rpc-bind-host</name>
++    <value><%= @hadoop_namenode_bind_host %></value>
++  </property>
++
++<%   end -%>
+   <property>
+     <name>dfs.namenode.http-address</name>
+     <value><%= namenode_hosts[0] %>:<%= @hadoop_namenode_http_port %></value>
+   </property>
+ 
++<%   if not @hadoop_namenode_http_bind_host.nil? -%>
++  <property>
++    <name>dfs.namenode.http-bind-host</name>
++    <value><%= @hadoop_namenode_http_bind_host %></value>
++  </property>
++
++<%   end -%>
+   <property>
+     <name>dfs.namenode.https-address</name>
+     <value><%= namenode_hosts[0] %>:<%= @hadoop_namenode_https_port %></value>
+   </property>
+ 
++<%   if not @hadoop_namenode_https_bind_host.nil? -%>
++  <property>
++    <name>dfs.namenode.https-bind-host</name>
++    <value><%= @hadoop_namenode_https_bind_host %></value>
++  </property>
++
++<%   end -%>
+ <%   if @hadoop_security_authentication == "kerberos" -%>
+   <property>
+     <name>dfs.block.access.token.enable</name>
+diff --git a/bigtop-deploy/puppet/modules/hadoop/templates/yarn-site.xml b/bigtop-deploy/puppet/modules/hadoop/templates/yarn-site.xml
+index 0b1285e..56c6015 100644
+--- a/bigtop-deploy/puppet/modules/hadoop/templates/yarn-site.xml
++++ b/bigtop-deploy/puppet/modules/hadoop/templates/yarn-site.xml
+@@ -92,6 +92,13 @@
+     <value><%= host %>:<%= @hadoop_rm_port %></value>
+   </property>
+ 
++<%     if not @hadoop_rm_bind_host.nil? -%>
++  <property>
++    <name>yarn.resourcemanager.bind-host.rm<%= idx+1 %></name>
++    <value><%= @hadoop_rm_bind_host %></value>
++  </property>
++
++<%     end -%>
+   <property>
+     <name>yarn.resourcemanager.scheduler.address.rm<%= idx+1 %></name>
+     <value><%= host %>:<%= @hadoop_sc_port %></value>
+@@ -125,6 +132,13 @@
+     <value><%= @hadoop_rm_host %>:<%= @hadoop_rm_port %></value>
+   </property>
+ 
++<%   if not @hadoop_rm_bind_host.nil? -%>
++  <property>
++    <name>yarn.resourcemanager.bind-host</name>
++    <value><%= @hadoop_rm_bind_host %></value>
++  </property>
++
++<%   end -%>
+   <property>
+     <name>yarn.resourcemanager.scheduler.address</name>
+     <value><%= @hadoop_rm_host %>:<%= @hadoop_sc_port %></value>
