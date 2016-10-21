@@ -11,6 +11,7 @@ from charms.layer.apache_bigtop_base import (
     Bigtop,
     get_layer_opts,
     get_fqdn,
+    is_localdomain,
     BigtopError,
     java_home
 )
@@ -82,19 +83,26 @@ class TestBigtopUnit(Harness):
         self.assertTrue(mock_fetch.apt_update.called)
 
     @mock.patch('charms.layer.apache_bigtop_base.socket')
+    @mock.patch('charms.layer.apache_bigtop_base.subprocess')
     @mock.patch('charms.layer.apache_bigtop_base.utils')
     @mock.patch('charms.layer.apache_bigtop_base.hookenv')
-    def test_check_reverse_dns(self, mock_hookenv, mock_utils, mock_socket):
+    def test_check_reverse_dns(self, mock_hookenv, mock_utils,
+                               mock_sub, mock_socket):
         '''
         Verify that we set the reverse_dns_ok state, and handle errors
         correctly.
 
         '''
         # Test the case where things succeed.
+        mock_sub.check_output.return_value = b'domain'
         self.bigtop.check_reverse_dns()
         self.assertTrue(unitdata.kv().get('reverse_dns_ok'))
 
         # Test the case where we get an exception.
+        mock_sub.check_output.return_value = b'localdomain'
+        self.bigtop.check_reverse_dns()
+        self.assertFalse(unitdata.kv().get('reverse_dns_ok'))
+
         class MockHError(Exception):
             pass
 
@@ -104,7 +112,6 @@ class TestBigtopUnit(Harness):
         mock_socket.gethostbyaddr = raise_herror
 
         self.bigtop.check_reverse_dns()
-
         self.assertFalse(unitdata.kv().get('reverse_dns_ok'))
 
     @mock.patch('charms.layer.apache_bigtop_base.ArchiveUrlFetchHandler')
@@ -183,11 +190,11 @@ class TestBigtopUnit(Harness):
         # Verify that we attempt to write yaml::datadir to hieradata.
         self.assertTrue(mock_dst.write_text.called)
 
-    @mock.patch('charms.layer.apache_bigtop_base.subprocess')
+    @mock.patch('charms.layer.apache_bigtop_base.utils.run_as')
     @mock.patch('charms.layer.apache_bigtop_base.yaml')
     @mock.patch('charms.layer.apache_bigtop_base.Bigtop.site_yaml')
     @mock.patch('charms.layer.apache_bigtop_base.Path')
-    def test_render_site_yaml(self, mock_path, mock_site, mock_yaml, mock_sub):
+    def test_render_site_yaml(self, mock_path, mock_site, mock_yaml, mock_run):
         '''
         Verify that we attempt to put together a plausible site yaml
         config, before writing it out to a (mocked) yaml file.
@@ -407,24 +414,29 @@ class TestHelpers(Harness):
         ret = get_layer_opts()
         self.assertEqual(ret.dist_config['foo'], 'bar')
 
-    @mock.patch('charms.layer.apache_bigtop_base.subprocess')
-    def test_get_fqdn(self, mock_sub):
+    @mock.patch('charms.layer.apache_bigtop_base.utils.run_as')
+    def test_get_fqdn(self, mock_run):
         '''
-        Verify that we fetch our fqdn correctly, decoding the string and
-        stripping spaces.
+        Verify that we fetch our fqdn correctly, stripping spaces.
 
-        Note: the tested function currently only handles utf-8 encoded
-        strings.
-
+        Note: utils.run_as returns utf-8 decoded strings.
         '''
         for s in [
-                b'foo',
-                b'foo  ',
-                b'   foo',
-                b'  foo  ',
-                'foo'.encode('utf-8'), ]:
-            mock_sub.check_output.return_value = s
+                'foo',
+                'foo  ',
+                '   foo',
+                '  foo  ', ]:
+            mock_run.return_value = s
             self.assertEqual(get_fqdn(), 'foo')
+
+    @mock.patch('charms.layer.apache_bigtop_base.subprocess')
+    def test_is_localdomain(self, mock_sub):
+        '''Verify true if our domainname is 'localdomain'; false otherwise.'''
+        mock_sub.check_output.return_value = b'localdomain'
+        self.assertTrue(is_localdomain())
+
+        mock_sub.check_output.return_value = b'example.com'
+        self.assertFalse(is_localdomain())
 
 
 class TestJavaHome(Harness):
