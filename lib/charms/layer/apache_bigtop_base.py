@@ -185,7 +185,6 @@ class Bigtop(object):
         assume DNS is not available (ie, when domainname == localdomain).
         """
         if is_localdomain():
-            # NB: facter is on the system because it's a dep of puppet-common
             host = subprocess.check_output(['facter', 'hostname']).strip().decode()
             utils.re_edit_in_place('/etc/environment', {
                 r'FACTER_fqdn=.*': 'FACTER_fqdn={}'.format(host),
@@ -538,7 +537,19 @@ def is_localdomain():
 
     :return: True if domainname is 'localdomain'; False otherwise
     """
-    # NB: facter is on the system because it's a dep of puppet-common
+    # NB: lxd has a pesky bug where it makes all containers think they
+    # are .localdomain when they are really .lxd:
+    #   https://bugs.launchpad.net/juju/+bug/1633126
+    # The .lxd domain is completely valid for lxc FQDNs, so if we are
+    # in this scenario, update nsswitch.conf to prefer the accurate lxd dns
+    # over /etc/hosts. All subsequent domainname tests by facter or any
+    # other application will correctly report .lxd as the domainname.
+    lxd_check = subprocess.check_output(['hostname', '-A']).strip().decode()
+    if lxd_check.endswith('.lxd'):
+        utils.re_edit_in_place('/etc/nsswitch.conf', {
+            r'files dns': 'dns files'
+        })
+
     domainname = subprocess.check_output(['facter', 'domain']).strip().decode()
     if domainname == 'localdomain':
         return True
