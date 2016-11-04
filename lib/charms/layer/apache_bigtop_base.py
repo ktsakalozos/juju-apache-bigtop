@@ -496,11 +496,11 @@ def get_package_version(pkg):
     Return a version string for a given package name.
 
     :param: str pkg: package name as known by the package manager
-    :returns: version string or None
+    :returns: str ver_str: version string from package manager, or empty string
     """
     if pkg:
         distro = lsb_release()['DISTRIB_ID'].lower()
-        ver_str = None
+        ver_str = ''
         if distro == 'ubuntu':
             # NB: we cannot use the charmhelpers.fetch.apt_cache nor the
             # apt module from the python3-apt deb as they are only available

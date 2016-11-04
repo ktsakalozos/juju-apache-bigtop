@@ -429,7 +429,7 @@ class TestHelpers(Harness):
             raise MockException('foo!')
         mock_sub.check_output.side_effect = mock_raise
 
-        self.assertEqual(get_package_version('foo'), None)
+        self.assertEqual(get_package_version('foo'), '')
 
     @mock.patch('charms.layer.apache_bigtop_base.layer.options')
     def test_get_layer_opts(self, mock_options):
