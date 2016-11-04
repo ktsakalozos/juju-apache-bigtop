@@ -491,16 +491,16 @@ def get_hadoop_version():
     return parts[1]
 
 
-def get_package_version(pkg=None):
+def get_package_version(pkg):
     """
     Return a version string for a given package name.
 
     :param: str pkg: package name as known by the package manager
     :returns: version string or None
     """
-    ver_str = None
     if pkg:
         distro = lsb_release()['DISTRIB_ID'].lower()
+        ver_str = None
         if distro == 'ubuntu':
             # NB: we cannot use the charmhelpers.fetch.apt_cache nor the
             # apt module from the python3-apt deb as they are only available
@@ -513,7 +513,9 @@ def get_package_version(pkg=None):
                 hookenv.log(
                     'Error getting package version: {}'.format(e.output),
                     hookenv.ERROR)
-    return ver_str
+        return ver_str
+    else:
+        raise BigtopError(u"Valid package name required")
 
 
 def java_home():

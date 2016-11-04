@@ -8,6 +8,7 @@ from charmhelpers.core import unitdata
 from charms.reactive import set_state, is_state, remove_state
 
 from charms.layer.apache_bigtop_base import (
+    BigtopError,
     Bigtop,
     get_layer_opts,
     get_fqdn,
@@ -410,9 +411,15 @@ class TestHelpers(Harness):
     @mock.patch('charms.layer.apache_bigtop_base.subprocess')
     def test_get_package_version(self, mock_sub):
         '''Verify expected package version is returned.'''
+        # test empty package name
+        with self.assertRaises(BigtopError):
+            get_package_version('')
+
+        # test good check_output result
         mock_sub.check_output.return_value = b'1.2.3'
         self.assertEqual(get_package_version('foo'), '1.2.3')
 
+        # test bad check_output result
         class MockException(Exception):
             pass
         MockException.output = "package foo not found"
