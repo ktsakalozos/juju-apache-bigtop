@@ -491,6 +491,33 @@ def get_hadoop_version():
     return parts[1]
 
 
+def get_package_version(pkg):
+    """
+    Return a version string for a given package name.
+
+    :param: str pkg: package name as known by the package manager
+    :returns: str ver_str: version string from package manager, or empty string
+    """
+    if pkg:
+        distro = lsb_release()['DISTRIB_ID'].lower()
+        ver_str = ''
+        if distro == 'ubuntu':
+            # NB: we cannot use the charmhelpers.fetch.apt_cache nor the
+            # apt module from the python3-apt deb as they are only available
+            # as system packages. Any charm with use_system_packages=False in
+            # layer.yaml would fail. Use dpkg-query instead.
+            cmd = ['dpkg-query', '--show', r'--showformat=${Version}', pkg]
+            try:
+                ver_str = subprocess.check_output(cmd).strip().decode()
+            except subprocess.CalledProcessError as e:
+                hookenv.log(
+                    'Error getting package version: {}'.format(e.output),
+                    hookenv.ERROR)
+        return ver_str
+    else:
+        raise BigtopError(u"Valid package name required")
+
+
 def java_home():
     '''Figure out where Java lives.'''
 
