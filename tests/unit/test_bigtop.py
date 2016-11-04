@@ -11,6 +11,7 @@ from charms.layer.apache_bigtop_base import (
     Bigtop,
     get_layer_opts,
     get_fqdn,
+    get_package_version,
     is_localdomain,
     BigtopError,
     java_home
@@ -348,7 +349,7 @@ class TestBigtopUnit(Harness):
             'success'
         )
 
-        # Should return error message if subprocess raised and Exception.
+        # Should return error message if subprocess raised an Exception.
         class MockException(Exception):
             pass
         MockException.output = "test output"
@@ -406,10 +407,26 @@ class TestHelpers(Harness):
     def test_get_hadoop_version(self):
         '''Mainly system calls -- covered by linter, and integration tests.'''
 
+    @mock.patch('charms.layer.apache_bigtop_base.subprocess')
+    def test_get_package_version(self, mock_sub):
+        '''Verify expected package version is returned.'''
+        mock_sub.check_output.return_value = b'1.2.3'
+        self.assertEqual(get_package_version('foo'), '1.2.3')
+
+        class MockException(Exception):
+            pass
+        MockException.output = "package foo not found"
+        mock_sub.CalledProcessError = MockException
+
+        def mock_raise(*args, **kwargs):
+            raise MockException('foo!')
+        mock_sub.check_output.side_effect = mock_raise
+
+        self.assertEqual(get_package_version('foo'), None)
+
     @mock.patch('charms.layer.apache_bigtop_base.layer.options')
     def test_get_layer_opts(self, mock_options):
         '''Verify that we parse whatever dict we get back from options.'''
-
         mock_options.return_value = {'foo': 'bar'}
         ret = get_layer_opts()
         self.assertEqual(ret.dist_config['foo'], 'bar')
