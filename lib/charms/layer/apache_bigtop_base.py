@@ -144,7 +144,6 @@ class Bigtop(object):
             hookenv.log('Could not inspect /proc/swaps: {}'.format(e),
                         hookenv.INFO)
             swap_out = None
-            pass
         lines = swap_out.splitlines() if swap_out else []
         if len(lines) < 2:
             # /proc/swaps has a header row; if we dont have at least 2 lines,
@@ -156,7 +155,6 @@ class Bigtop(object):
                 hookenv.log('Proceeding with no swap due to an error '
                             'installing dphys-swapfile: {}'.format(e),
                             hookenv.ERROR)
-                pass
 
             # Always include dphys-swapfile status in the log
             cmd = ['systemctl', 'status', 'dphys-swapfile.service']
