@@ -15,7 +15,7 @@ from charmhelpers.fetch.archiveurl import ArchiveUrlFetchHandler
 from charmhelpers import fetch
 from jujubigdata import utils
 from charmhelpers.core import hookenv, unitdata
-from charmhelpers.core.host import chdir, chownr, lsb_release
+from charmhelpers.core.host import chdir, chownr, init_is_systemd, lsb_release
 from charms.reactive import when, set_state, remove_state, is_state
 from charms.reactive.helpers import data_changed
 
@@ -157,7 +157,10 @@ class Bigtop(object):
                             hookenv.ERROR)
 
             # Always include dphys-swapfile status in the log
-            cmd = ['systemctl', 'status', 'dphys-swapfile.service']
+            if init_is_systemd():
+                cmd = ['systemctl', 'status', 'dphys-swapfile.service']
+            else:
+                cmd = ['service', 'dphys-swapfile', 'status']
             try:
                 systemd_out = subprocess.check_output(cmd)
             except subprocess.CalledProcessError as e:
