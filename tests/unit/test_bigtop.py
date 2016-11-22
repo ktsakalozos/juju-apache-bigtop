@@ -14,7 +14,6 @@ from charms.layer.apache_bigtop_base import (
     get_fqdn,
     get_package_version,
     is_localdomain,
-    BigtopError,
     java_home
 )
 
@@ -46,6 +45,10 @@ class TestBigtopUnit(Harness):
         integration tests.
 
         '''
+
+    @unittest.skip('noop')
+    def test_install_swap(self):
+        '''Mainly system calls -- covered by linter and basic deploy tests.'''
 
     @mock.patch('charms.layer.apache_bigtop_base.lsb_release')
     @mock.patch('charms.layer.apache_bigtop_base.utils')

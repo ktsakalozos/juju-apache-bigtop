@@ -15,7 +15,7 @@ from charmhelpers.fetch.archiveurl import ArchiveUrlFetchHandler
 from charmhelpers import fetch
 from jujubigdata import utils
 from charmhelpers.core import hookenv, unitdata
-from charmhelpers.core.host import chdir, chownr, lsb_release
+from charmhelpers.core.host import chdir, chownr, init_is_systemd, lsb_release
 from charms.reactive import when, set_state, remove_state, is_state
 from charms.reactive.helpers import data_changed
 
@@ -121,6 +121,7 @@ class Bigtop(object):
         You will then need to call `render_site_yaml` to set up the correct
         configuration and `trigger_puppet` to install the desired components.
         """
+        self.install_swap()
         self.install_java()
         self.pin_bigtop_packages()
         self.check_localdomain()
@@ -129,6 +130,49 @@ class Bigtop(object):
         self.install_puppet_modules()
         self.apply_patches()
         self.render_hiera_yaml()
+
+    def install_swap(self):
+        """
+        Setup swap space if needed.
+
+        Big Data apps can be memory intensive and lead to kernel OOM errors. To
+        provide a safety net against these, add swap space if none exists.
+        """
+        try:
+            swap_out = subprocess.check_output(['cat', '/proc/swaps']).decode()
+        except subprocess.CalledProcessError as e:
+            hookenv.log('Could not inspect /proc/swaps: {}'.format(e),
+                        hookenv.INFO)
+            swap_out = None
+        lines = swap_out.splitlines() if swap_out else []
+        if len(lines) < 2:
+            # /proc/swaps has a header row; if we dont have at least 2 lines,
+            # we don't have swap space. Install dphys-swapfile to create some.
+            hookenv.log('No swap space found in /proc/swaps', hookenv.INFO)
+            try:
+                subprocess.check_call(['apt-get', 'install', '-qy', 'dphys-swapfile'])
+            except subprocess.CalledProcessError as e:
+                hookenv.log('Proceeding with no swap due to an error '
+                            'installing dphys-swapfile: {}'.format(e),
+                            hookenv.ERROR)
+
+            # Always include dphys-swapfile status in the log
+            if init_is_systemd():
+                cmd = ['systemctl', 'status', 'dphys-swapfile.service']
+            else:
+                cmd = ['service', 'dphys-swapfile', 'status']
+            try:
+                systemd_out = subprocess.check_output(cmd)
+            except subprocess.CalledProcessError as e:
+                hookenv.log('Failed to get dphys-swapfile status: {}'.format(e.output),
+                            hookenv.ERROR)
+            else:
+                hookenv.log('Status of dphys-swapfile: {}'.format(systemd_out),
+                            hookenv.INFO)
+        else:
+            # Log the fact that we already have swap space.
+            hookenv.log('Swap space exists; skipping dphys-swapfile install',
+                        hookenv.INFO)
 
     def install_java(self):
         """
