@@ -1,38 +1,24 @@
-From 53d79b60b3b1957d2546bbf2b62b1fe47d6bd042 Mon Sep 17 00:00:00 2001
+From 60f9c56b8b211762ce66888cc6d599a2ffcc95e8 Mon Sep 17 00:00:00 2001
 From: Cory Johns <johnsca@gmail.com>
 Date: Thu, 26 May 2016 16:56:55 -0400
 Subject: [PATCH] BIGTOP-2462: Make Spark events and history logs directory
  configurable
 
 ---
- bigtop-deploy/puppet/hieradata/bigtop/cluster.yaml               | 2 ++
  bigtop-deploy/puppet/modules/spark/manifests/init.pp             | 2 ++
  bigtop-deploy/puppet/modules/spark/templates/spark-defaults.conf | 4 ++--
- 3 files changed, 6 insertions(+), 2 deletions(-)
+ 2 files changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/bigtop-deploy/puppet/hieradata/bigtop/cluster.yaml b/bigtop-deploy/puppet/hieradata/bigtop/cluster.yaml
-index f592f64..1a8e607 100644
---- a/bigtop-deploy/puppet/hieradata/bigtop/cluster.yaml
-+++ b/bigtop-deploy/puppet/hieradata/bigtop/cluster.yaml
-@@ -135,6 +135,8 @@ hcatalog::server::kerberos_realm: "%{hiera('kerberos::site::realm')}"
- hcatalog::webhcat::server::kerberos_realm: "%{hiera('kerberos::site::realm')}"
- 
- spark::common::master_host: "%{hiera('bigtop::hadoop_head_node')}"
-+spark::common::event_log_dir: "hdfs:///var/log/spark/apps"
-+spark::common::history_log_dir: "hdfs:///var/log/spark/apps"
- 
- alluxio::common::master_host: "%{hiera('bigtop::hadoop_head_node')}"
- 
 diff --git a/bigtop-deploy/puppet/modules/spark/manifests/init.pp b/bigtop-deploy/puppet/modules/spark/manifests/init.pp
-index ee42821..5025e29 100644
+index ee42821..f5a2d64 100644
 --- a/bigtop-deploy/puppet/modules/spark/manifests/init.pp
 +++ b/bigtop-deploy/puppet/modules/spark/manifests/init.pp
 @@ -143,6 +143,8 @@
        $worker_ui_port = 8081,
        $history_ui_port = 18080,
        $use_yarn_shuffle_service = false,
-+      $event_log_dir,
-+      $history_log_dir,
++      $event_log_dir =  "hdfs:///var/log/spark/apps",
++      $history_log_dir = "hdfs:///var/log/spark/apps",
    ) {
  
      package { 'spark-core':
