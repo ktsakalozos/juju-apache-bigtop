@@ -1,20 +1,36 @@
-From 404d45ca7974f093cc3bfc5dde17c33483c886a5 Mon Sep 17 00:00:00 2001
+From 42f6814dc0904b2f3653433369db9f62790364a6 Mon Sep 17 00:00:00 2001
 From: Konstantinos Tsakalozos <konstantinos.tsakalozos@canonical.com>
 Date: Tue, 5 Jul 2016 20:25:27 +0300
-Subject: [PATCH 1/1] BIGTOP-2490: Spark in HA when Zookeeper is available
+Subject: [PATCH 1/2] BIGTOP-2490: Spark in HA when Zookeeper is available
 
 ---
+ bigtop-deploy/puppet/hieradata/bigtop/cluster.yaml               | 3 +++
  bigtop-deploy/puppet/modules/spark/manifests/init.pp             | 8 ++++++++
  bigtop-deploy/puppet/modules/spark/templates/spark-defaults.conf | 3 +++
  bigtop-deploy/puppet/modules/spark/templates/spark-env.sh        | 2 ++
  bigtop-packages/src/common/spark/spark-worker.svc                | 2 +-
- 4 files changed, 14 insertions(+), 1 deletion(-)
+ 5 files changed, 17 insertions(+), 1 deletion(-)
 
+diff --git a/bigtop-deploy/puppet/hieradata/bigtop/cluster.yaml b/bigtop-deploy/puppet/hieradata/bigtop/cluster.yaml
+index 7779d21..00cb044 100644
+--- a/bigtop-deploy/puppet/hieradata/bigtop/cluster.yaml
++++ b/bigtop-deploy/puppet/hieradata/bigtop/cluster.yaml
+@@ -146,7 +146,10 @@ hadoop_oozie::server::kerberos_realm: "%{hiera('kerberos::site::realm')}"
+ hcatalog::server::kerberos_realm: "%{hiera('kerberos::site::realm')}"
+ hcatalog::webhcat::server::kerberos_realm: "%{hiera('kerberos::site::realm')}"
+ 
++# spark
+ spark::common::master_host: "%{hiera('bigtop::hadoop_head_node')}"
++# to enable spark HA, ensure zookeeper is available and uncomment the line below
++#spark::common::zookeeper_connection_string: "%{hiera('hadoop::zk')}"
+ 
+ alluxio::common::master_host: "%{hiera('bigtop::hadoop_head_node')}"
+ 
 diff --git a/bigtop-deploy/puppet/modules/spark/manifests/init.pp b/bigtop-deploy/puppet/modules/spark/manifests/init.pp
-index f5a2d64..9ec38c1 100644
+index 7bc4a5b..f068e0e 100644
 --- a/bigtop-deploy/puppet/modules/spark/manifests/init.pp
 +++ b/bigtop-deploy/puppet/modules/spark/manifests/init.pp
-@@ -137,6 +137,7 @@ class spark {
+@@ -137,6 +137,7 @@
    class common(
        $master_url = 'yarn',
        $master_host = $fqdn,
@@ -22,7 +38,7 @@ index f5a2d64..9ec38c1 100644
        $master_port = 7077,
        $worker_port = 7078,
        $master_ui_port = 8080,
-@@ -158,6 +159,13 @@ class spark {
+@@ -158,6 +159,13 @@
        ensure => latest,
      }
  
@@ -83,6 +99,58 @@ index 7c12374..445d344 100644
          > $LOG_FILE 2>&1 & "'echo $!' > "$PIDFILE"
  
      sleep 3
--- 
-2.7.4
 
+From 80b35e0554a19ff733257e8979ea7fe04ed04e0d Mon Sep 17 00:00:00 2001
+From: Kevin W Monroe <kevin.monroe@canonical.com>
+Date: Fri, 3 Feb 2017 21:00:34 +0000
+Subject: [PATCH 2/2] tweak logic when testing the zk connection string value
+
+---
+ bigtop-deploy/puppet/modules/spark/manifests/init.pp             | 9 ++++-----
+ bigtop-deploy/puppet/modules/spark/templates/spark-defaults.conf | 5 ++---
+ 2 files changed, 6 insertions(+), 8 deletions(-)
+
+diff --git a/bigtop-deploy/puppet/modules/spark/manifests/init.pp b/bigtop-deploy/puppet/modules/spark/manifests/init.pp
+index f068e0e..1b2ff6b 100644
+--- a/bigtop-deploy/puppet/modules/spark/manifests/init.pp
++++ b/bigtop-deploy/puppet/modules/spark/manifests/init.pp
+@@ -109,7 +109,7 @@
+       ],
+       hasrestart => true,
+       hasstatus => true,
+-    } 
++    }
+   }
+ 
+   class yarn {
+@@ -159,11 +159,10 @@
+       ensure => latest,
+     }
+ 
+-    if $zookeeper_connection_string {
+-      $spark_daemon_java_opts = "\"-Dspark.deploy.recoveryMode=ZOOKEEPER -Dspark.deploy.zookeeper.url=${zookeeper_connection_string}\""
+-    }
+-    else {
++    if $zookeeper_connection_string == undef {
+       $spark_daemon_java_opts = "\"-Dspark.deploy.recoveryMode=NONE\""
++    } else {
++      $spark_daemon_java_opts = "\"-Dspark.deploy.recoveryMode=ZOOKEEPER -Dspark.deploy.zookeeper.url=${zookeeper_connection_string}\""
+     }
+ 
+     file { '/etc/spark/conf/spark-env.sh':
+diff --git a/bigtop-deploy/puppet/modules/spark/templates/spark-defaults.conf b/bigtop-deploy/puppet/modules/spark/templates/spark-defaults.conf
+index fec8181..6339802 100644
+--- a/bigtop-deploy/puppet/modules/spark/templates/spark-defaults.conf
++++ b/bigtop-deploy/puppet/modules/spark/templates/spark-defaults.conf
+@@ -17,9 +17,8 @@ spark.master <%= @master_url %>
+ spark.eventLog.enabled true
+ spark.eventLog.dir <%= @event_log_dir %>
+ spark.history.fs.logDirectory <%= @history_log_dir %>
+-<%   if @zookeeper_connection_string.to_s == '' -%>
++<% if @zookeeper_connection_string.nil? -%>
+ spark.yarn.historyServer.address <%= @master_host %>:<%= @history_ui_port %>
+-
+-<%   end -%>
++<% end -%>
+ spark.history.ui.port <%= @history_ui_port %>
+ spark.shuffle.service.enabled <%= @use_yarn_shuffle_service %>
