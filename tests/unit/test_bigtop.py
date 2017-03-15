@@ -119,16 +119,12 @@ class TestBigtopUnit(Harness):
         self.bigtop.check_reverse_dns()
         self.assertFalse(unitdata.kv().get('reverse_dns_ok'))
 
-    @mock.patch('charms.layer.apache_bigtop_base.ArchiveUrlFetchHandler')
     def test_fetch_bigtop_release(self, mock_fetch):
-        '''Verify that we attemp to fetch and install the bigtop archive.'''
-
-        mock_au = mock.Mock()
-        mock_fetch.return_value = mock_au
-
-        self.bigtop.fetch_bigtop_release()
-
-        self.assertTrue(mock_au.install.called)
+        '''Verify we raise an exception if an invalid release is specified.'''
+        self.assertRaises(
+            BigtopError,
+            self.bigtop.fetch_bigtop_release,
+            '1.2')
 
     @mock.patch('charms.layer.apache_bigtop_base.utils')
     def test_install_puppet_modules(self, mock_utils):

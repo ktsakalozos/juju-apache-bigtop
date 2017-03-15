@@ -11,7 +11,6 @@ import netifaces
 from path import Path
 
 from charms import layer
-from charmhelpers.fetch.archiveurl import ArchiveUrlFetchHandler
 from charmhelpers import fetch
 from jujubigdata import utils
 from charmhelpers.core import hookenv, unitdata
@@ -45,29 +44,46 @@ class Bigtop(object):
         self.bigtop_version = self.options['bigtop_version']
         self._bigtop_base = Path(self.bigtop_dir) / 'bigtop-{}'.format(
             self.bigtop_version)
-        self._site_yaml = Path(self.bigtop_base) / self.options[
-            'bigtop_hiera_siteyaml']
-
-        dist_name, _, dist_series = platform.linux_distribution()
-        # NB: xenial repo is not currently available, and ppc64le only works
-        # with vivid. Force vivid on ppc and trusty on everyone else for now:
-        #   http://paste.ubuntu.com/18185418/
-        repo_arch = utils.cpu_arch()
-        if repo_arch == "ppc64le":
-            dist_series = "vivid"
-            # The 'le' and 'el' are swapped due to historical debian awfulness.
-            #   https://lists.debian.org/debian-powerpc/2014/08/msg00042.html
-            repo_arch = "ppc64el"
-        else:
-            dist_series = "trusty"
-        # Substitute params in the configured option. It's ok if any of these
-        # params (version, dist, series, arch) are missing.
-        self.bigtop_apt = self.options['bigtop_repo_url'].format(
-            version=self.bigtop_version,
-            dist=dist_name.lower(),
-            series=dist_series.lower(),
-            arch=repo_arch
+        self._site_yaml = (
+            Path(self.bigtop_base) / 'bigtop-deploy/puppet/hieradata/site.yaml'
         )
+
+        # pkg repo is dependent on the bigtop version and OS
+        dist_name, _, dist_series = platform.linux_distribution()
+        if self.bigtop_version == '1.1.0':
+            repo_url = ('http://bigtop-repos.s3.amazonaws.com/releases/'
+                        '{version}/{dist}/{series}/{arch}')
+            repo_arch = utils.cpu_arch()
+            if dist_name.lower() == 'ubuntu':
+                # NB: For 1.1.0, x86 must install from the trusty repo;
+                # ppc64le only works from vivid.
+                if repo_arch.lower() == "ppc64le":
+                    dist_series = "vivid"
+                    # 'le' and 'el' are swapped due to historical awfulness:
+                    #   https://lists.debian.org/debian-powerpc/2014/08/msg00042.html
+                    repo_arch = "ppc64el"
+                else:
+                    dist_series = "trusty"
+            # Substitute params. It's ok if any of these (version, dist,
+            # series, arch) are missing.
+            self.bigtop_apt = repo_url.format(
+                version=self.bigtop_version,
+                dist=dist_name.lower(),
+                series=dist_series.lower(),
+                arch=repo_arch
+            )
+        elif self.bigtop_version == 'master':
+            if dist_name.lower() == 'ubuntu' and dist_series.lower() == 'xenial':
+                self.bigtop_apt = ('http://ci.bigtop.apache.org:8080/'
+                                   'job/Bigtop-trunk-repos/'
+                                   'OS=ubuntu-16.04,label=docker-slave-06/'
+                                   'ws/output/apt')
+            else:
+                raise BigtopError(
+                    u"Charms only support Bigtop master on Ubuntu/Xenial.")
+        else:
+            raise BigtopError(
+                u"Unknown Bigtop version: {}".format(self.bigtop_version))
 
     def get_ip_for_interface(self, network_interface):
         """
@@ -259,11 +275,33 @@ class Bigtop(object):
         unitdata.kv().set('reverse_dns_ok', reverse_dns_ok)
 
     def fetch_bigtop_release(self):
-        # download Bigtop release; unpack the recipes
-        bigtop_url = self.options['bigtop_release_url']
+        """
+        Clone the Bigtop repo.
+
+        This maps the desired bigtop release version to an upstream repo branch
+        and clones that into our bigtop_dir.
+
+        TODO: support deployments in network restricted environments where
+        cloning github is not possible. In that scenario, we should use juju
+        resources to attach the desired release package.
+        """
+        bigtop_repo = 'https://github.com/apache/bigtop.git'
+        if self.bigtop_version == '1.1.0':
+            bigtop_branch = 'branch-1.1'
+        elif self.bigtop_version == 'master':
+            bigtop_branch = 'master'
+        else:
+            raise BigtopError(
+                u"Unknown Bigtop version: {}".format(self.bigtop_version))
+
         Path(self.bigtop_dir).rmtree_p()
-        au = ArchiveUrlFetchHandler()
-        au.install(bigtop_url, self.bigtop_dir)
+        # NB: we cannot use the fetch.install_remote helper because that relies
+        # on the deb-only python3-apt package. Subordinates cannot install
+        # deb dependencies into their venv, so to ensure bigtop subordinate
+        # charms succeed, subprocess the required git clone.
+        utils.run_as('root', 'git', 'clone', bigtop_repo,
+                     '--branch', bigtop_branch, '--single-branch',
+                     self.bigtop_base)
 
     def install_puppet_modules(self):
         # Install required modules
@@ -278,10 +316,11 @@ class Bigtop(object):
 
     def render_hiera_yaml(self):
         """
-        Render the ``hiera.yaml`` file with the correct path to our ``site.yaml`` file.
+        Render the ``hiera.yaml`` file with the correct path to the bigtop
+        ``site.yaml`` file.
         """
-        hiera_src = Path(self.bigtop_base) / self.options['bigtop_hiera_config']
-        hiera_dst = Path(self.options['bigtop_global_hiera'])
+        hiera_src = Path(self.bigtop_base) / 'bigtop-deploy/puppet/hiera.yaml'
+        hiera_dst = Path('/etc/puppet/hiera.yaml')
 
         # read template defaults
         hiera_yaml = yaml.load(hiera_src.text())
@@ -433,11 +472,24 @@ class Bigtop(object):
                 utils.update_kv_host(private_ip, short_host)
                 utils.manage_etc_hosts()
 
-        # puppet apply needs to be ran where recipes were unpacked
+        # puppet args are bigtop-version depedent
+        if self.bigtop_version == '1.1.0':
+            puppet_args = [
+                '-d',
+                '--modulepath="bigtop-deploy/puppet/modules:/etc/puppet/modules"',
+                'bigtop-deploy/puppet/manifests/site.pp'
+            ]
+        else:
+            puppet_args = [
+                '-d',
+                '--parser=future',
+                '--modulepath="bigtop-deploy/puppet/modules:/etc/puppet/modules"',
+                'bigtop-deploy/puppet/manifests'
+            ]
+
+        # puppet apply runs from the root of the bigtop release source
         with chdir("{}".format(self.bigtop_base)):
-            utils.run_as('root', 'puppet', 'apply', '-d',
-                         '--modulepath="bigtop-deploy/puppet/modules:/etc/puppet/modules"',
-                         'bigtop-deploy/puppet/manifests/site.pp')
+            utils.run_as('root', 'puppet', 'apply', *puppet_args)
 
         # Do any post-puppet config on the generated config files.
         utils.re_edit_in_place('/etc/default/bigtop-utils', {
