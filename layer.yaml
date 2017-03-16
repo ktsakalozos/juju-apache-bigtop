@@ -1,5 +1,6 @@
 includes:
   - 'layer:basic'
+  - 'layer:metrics'
   - 'interface:java'
 ignore:
   - 'tests/unit'
