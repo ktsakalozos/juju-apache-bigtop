@@ -50,8 +50,8 @@ class Bigtop(object):
     def __init__(self):
         self.bigtop_dir = '/home/ubuntu/bigtop.release'
         self.options = layer.options('apache-bigtop-base')
-        self._bigtop_apt = None
         self._bigtop_version = self.options.get('bigtop_version')
+        self._bigtop_apt = self.get_repo_url(self.bigtop_version)
         self._bigtop_base = Path(self.bigtop_dir) / 'bigtop-{}'.format(
             self.bigtop_version)
         self._site_yaml = (
@@ -103,39 +103,24 @@ class Bigtop(object):
                         network_interface))
             return ip
 
-    def install(self):
+    def get_repo_url(self, bigtop_version=None):
         """
-        Install the base components of Apache Bigtop.
-
-        You will then need to call `render_site_yaml` to set up the correct
-        configuration and `trigger_puppet` to install the desired components.
-        """
-        self.configure_repo()
-        self.install_swap()
-        self.install_java()
-        self.pin_bigtop_packages()
-        self.check_localdomain()
-        self.check_reverse_dns()
-        self.fetch_bigtop_release()
-        self.install_puppet_modules()
-        self.apply_patches()
-        self.render_hiera_yaml()
-
-    def configure_repo(self):
-        """
-        Set our package repo based on the version layer opt.
+        Construct our package repo based on the given bigtop version.
 
         The package repository is dependent on the bigtop version and
         OS attributes. Construct an appropriate value to use as our site
         bigtop::bigtop_repo_uri param.
 
+        Param string Bigtop version (1.1.0 or master)
+        Return Bigtop repository URL
         Raise BigtopError if we have an unexpected version string.
         """
+        bigtop_repo_url = None
         release_info = lsb_release()
         dist_name = release_info['DISTRIB_ID'].lower()
         dist_series = release_info['DISTRIB_CODENAME'].lower()
 
-        if self.bigtop_version == '1.1.0':
+        if bigtop_version == '1.1.0':
             repo_url = ('http://bigtop-repos.s3.amazonaws.com/releases/'
                         '{version}/{dist}/{series}/{arch}')
             repo_arch = utils.cpu_arch().lower()
@@ -151,24 +136,43 @@ class Bigtop(object):
                     dist_series = "trusty"
             # Substitute params. It's ok if any of these (version, dist,
             # series, arch) are missing.
-            self._bigtop_apt = repo_url.format(
+            bigtop_repo_url = repo_url.format(
                 version=self.bigtop_version,
                 dist=dist_name.lower(),
                 series=dist_series.lower(),
                 arch=repo_arch
             )
-        elif self.bigtop_version == 'master':
+        elif bigtop_version == 'master':
             if dist_name == 'ubuntu' and dist_series == 'xenial':
-                self._bigtop_apt = ('http://ci.bigtop.apache.org:8080/'
-                                    'job/Bigtop-trunk-repos/'
-                                    'OS=ubuntu-16.04,label=docker-slave-06/'
-                                    'ws/output/apt')
+                bigtop_repo_url = ('http://ci.bigtop.apache.org:8080/'
+                                   'job/Bigtop-trunk-repos/'
+                                   'OS=ubuntu-16.04,label=docker-slave-06/'
+                                   'ws/output/apt')
             else:
                 raise BigtopError(
                     u"Charms only support Bigtop master on Ubuntu/Xenial.")
         else:
             raise BigtopError(
-                u"Unknown Bigtop version: {}".format(self.bigtop_version))
+                u"Unknown Bigtop version: {}".format(bigtop_version))
+
+        return bigtop_repo_url
+
+    def install(self):
+        """
+        Install the base components of Apache Bigtop.
+
+        You will then need to call `render_site_yaml` to set up the correct
+        configuration and `trigger_puppet` to install the desired components.
+        """
+        self.install_swap()
+        self.install_java()
+        self.pin_bigtop_packages()
+        self.check_localdomain()
+        self.check_reverse_dns()
+        self.fetch_bigtop_release()
+        self.install_puppet_modules()
+        self.apply_patches()
+        self.render_hiera_yaml()
 
     def install_swap(self):
         """
