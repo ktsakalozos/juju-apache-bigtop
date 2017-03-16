@@ -46,6 +46,47 @@ class TestBigtopUnit(Harness):
 
         '''
 
+    @mock.patch('charms.layer.apache_bigtop_base.utils')
+    @mock.patch('charms.layer.apache_bigtop_base.layer.options')
+    @mock.patch('charms.layer.apache_bigtop_base.lsb_release')
+    @mock.patch('charms.layer.apache_bigtop_base.Bigtop.bigtop_version',
+                new_callable=mock.PropertyMock)
+    def test_configure_repo(self, mock_ver, mock_lsb_release,
+                            mock_options, mock_utils):
+        '''
+        Test to verify that we setup an appropriate repository.
+
+        '''
+        # master on xenial should not construct a url with cpu_arch
+        mock_lsb_release.return_value = {'DISTRIB_CODENAME': 'xenial',
+                                         'DISTRIB_ID': 'ubuntu'}
+        mock_ver.return_value = 'master'
+        self.bigtop.configure_repo()
+        self.assertFalse(mock_utils.cpu_arch.called)
+
+        # master on trusty should throw an exception
+        mock_lsb_release.return_value = {'DISTRIB_CODENAME': 'trusty',
+                                         'DISTRIB_ID': 'ubuntu'}
+        mock_ver.return_value = 'master'
+        self.assertRaises(
+            BigtopError,
+            self.bigtop.configure_repo)
+
+        # master on non-ubuntu should throw an exception
+        mock_lsb_release.return_value = {'DISTRIB_CODENAME': 'xenial',
+                                         'DISTRIB_ID': 'centos'}
+        mock_ver.return_value = 'master'
+        self.assertRaises(
+            BigtopError,
+            self.bigtop.configure_repo)
+
+        # 1.1.0 on xenial should construct a repo using the cpu_arch
+        mock_lsb_release.return_value = {'DISTRIB_CODENAME': 'xenial',
+                                         'DISTRIB_ID': 'ubuntu'}
+        mock_ver.return_value = '1.1.0'
+        self.bigtop.configure_repo()
+        self.assertTrue(mock_utils.cpu_arch.called)
+
     @unittest.skip('noop')
     def test_install_swap(self):
         '''Mainly system calls -- covered by linter and basic deploy tests.'''
@@ -119,12 +160,15 @@ class TestBigtopUnit(Harness):
         self.bigtop.check_reverse_dns()
         self.assertFalse(unitdata.kv().get('reverse_dns_ok'))
 
-    def test_fetch_bigtop_release(self, mock_fetch):
+    @mock.patch('charms.layer.apache_bigtop_base.Path')
+    @mock.patch('charms.layer.apache_bigtop_base.Bigtop.bigtop_version',
+                new_callable=mock.PropertyMock)
+    def test_fetch_bigtop_release(self, mock_path, mock_ver):
         '''Verify we raise an exception if an invalid release is specified.'''
+        mock_ver.return_value = 'foo'
         self.assertRaises(
             BigtopError,
-            self.bigtop.fetch_bigtop_release,
-            '1.2')
+            self.bigtop.fetch_bigtop_release)
 
     @mock.patch('charms.layer.apache_bigtop_base.utils')
     def test_install_puppet_modules(self, mock_utils):
