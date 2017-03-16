@@ -24,7 +24,10 @@ class TestBigtopUnit(Harness):
 
     '''
 
-    def setUp(self):
+    @mock.patch('charms.layer.apache_bigtop_base.Bigtop.bigtop_version',
+                new_callable=mock.PropertyMock)
+    def setUp(self, mock_ver):
+        mock_ver.return_value = 'master'
         super(TestBigtopUnit, self).setUp()
         self.bigtop = Bigtop()
 
@@ -45,6 +48,43 @@ class TestBigtopUnit(Harness):
         integration tests.
 
         '''
+
+    @mock.patch('charms.layer.apache_bigtop_base.utils')
+    @mock.patch('charms.layer.apache_bigtop_base.layer.options')
+    @mock.patch('charms.layer.apache_bigtop_base.lsb_release')
+    def test_get_repo_url(self, mock_lsb_release,
+                          mock_options, mock_utils):
+        '''
+        Test to verify that we setup an appropriate repository.
+
+        '''
+        # master on xenial should not construct a url with cpu_arch
+        mock_lsb_release.return_value = {'DISTRIB_CODENAME': 'xenial',
+                                         'DISTRIB_ID': 'ubuntu'}
+        self.bigtop.get_repo_url('master')
+        self.assertFalse(mock_utils.cpu_arch.called)
+
+        # master on trusty should throw an exception
+        mock_lsb_release.return_value = {'DISTRIB_CODENAME': 'trusty',
+                                         'DISTRIB_ID': 'ubuntu'}
+        self.assertRaises(
+            BigtopError,
+            self.bigtop.get_repo_url,
+            'master')
+
+        # master on non-ubuntu should throw an exception
+        mock_lsb_release.return_value = {'DISTRIB_CODENAME': 'xenial',
+                                         'DISTRIB_ID': 'centos'}
+        self.assertRaises(
+            BigtopError,
+            self.bigtop.get_repo_url,
+            'master')
+
+        # 1.1.0 on xenial should construct a repo using the cpu_arch
+        mock_lsb_release.return_value = {'DISTRIB_CODENAME': 'xenial',
+                                         'DISTRIB_ID': 'ubuntu'}
+        self.bigtop.get_repo_url('1.1.0')
+        self.assertTrue(mock_utils.cpu_arch.called)
 
     @unittest.skip('noop')
     def test_install_swap(self):
@@ -119,16 +159,15 @@ class TestBigtopUnit(Harness):
         self.bigtop.check_reverse_dns()
         self.assertFalse(unitdata.kv().get('reverse_dns_ok'))
 
-    @mock.patch('charms.layer.apache_bigtop_base.ArchiveUrlFetchHandler')
-    def test_fetch_bigtop_release(self, mock_fetch):
-        '''Verify that we attemp to fetch and install the bigtop archive.'''
-
-        mock_au = mock.Mock()
-        mock_fetch.return_value = mock_au
-
-        self.bigtop.fetch_bigtop_release()
-
-        self.assertTrue(mock_au.install.called)
+    @mock.patch('charms.layer.apache_bigtop_base.Path')
+    @mock.patch('charms.layer.apache_bigtop_base.Bigtop.bigtop_version',
+                new_callable=mock.PropertyMock)
+    def test_fetch_bigtop_release(self, mock_path, mock_ver):
+        '''Verify we raise an exception if an invalid release is specified.'''
+        mock_ver.return_value = 'foo'
+        self.assertRaises(
+            BigtopError,
+            self.bigtop.fetch_bigtop_release)
 
     @mock.patch('charms.layer.apache_bigtop_base.utils')
     def test_install_puppet_modules(self, mock_utils):
@@ -261,13 +300,16 @@ class TestBigtopUnit(Harness):
         self.assertTrue(is_state('apache-bigtop-base.puppet_queued'))
 
     @mock.patch('charms.layer.apache_bigtop_base.Bigtop.trigger_puppet')
-    def test_handle_queued_puppet(self, mock_trigger):
+    @mock.patch('charms.layer.apache_bigtop_base.Bigtop.bigtop_version',
+                new_callable=mock.PropertyMock)
+    def test_handle_queued_puppet(self, mock_ver, mock_trigger):
         '''
         Verify that we attempt to call puppet when it has been queued, and
         then clear the queued state.
 
         '''
         set_state('apache-bigtop-base.puppet_queued')
+        mock_ver.return_value = 'master'
         Bigtop._handle_queued_puppet()
         self.assertTrue(mock_trigger.called)
         self.assertFalse(is_state('apache-bigtop-base.puppet_queued'))
