@@ -251,7 +251,7 @@ class Bigtop(object):
         Tell Ubuntu to use the Bigtop repo where possible, so that we
         don't actually fetch newer packages from universe.
         """
-        origin = urlparse(self.bigtop_apt).netloc
+        origin = urlparse(self.bigtop_apt).hostname
 
         with open("resources/pin-bigtop.txt", "r") as pin_file:
             pin_file = pin_file.read().format(origin=origin)
