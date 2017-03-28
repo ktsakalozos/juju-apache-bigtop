@@ -111,7 +111,7 @@ class Bigtop(object):
         OS attributes. Construct an appropriate value to use as our site
         bigtop::bigtop_repo_uri param.
 
-        Param string Bigtop version (1.1.0 or master)
+        Param string Bigtop version ('1.1.0' or 'master')
         Return Bigtop repository URL
         Raise BigtopError if we have an unexpected version string.
         """
@@ -119,11 +119,11 @@ class Bigtop(object):
         release_info = lsb_release()
         dist_name = release_info['DISTRIB_ID'].lower()
         dist_series = release_info['DISTRIB_CODENAME'].lower()
+        repo_arch = utils.cpu_arch().lower()
 
         if bigtop_version == '1.1.0':
             repo_url = ('http://bigtop-repos.s3.amazonaws.com/releases/'
                         '{version}/{dist}/{series}/{arch}')
-            repo_arch = utils.cpu_arch().lower()
             if dist_name == 'ubuntu':
                 # NB: For 1.1.0, x86 must install from the trusty repo;
                 # ppc64le only works from vivid.
@@ -144,13 +144,19 @@ class Bigtop(object):
             )
         elif bigtop_version == 'master':
             if dist_name == 'ubuntu' and dist_series == 'xenial':
-                bigtop_repo_url = ('http://ci.bigtop.apache.org:8080/'
-                                   'job/Bigtop-trunk-repos/'
-                                   'OS=ubuntu-16.04,label=docker-slave-06/'
-                                   'ws/output/apt')
+                if repo_arch == "x86_64":
+                    bigtop_repo_url = ('http://ci.bigtop.apache.org:8080/'
+                                       'job/Bigtop-trunk-repos/'
+                                       'OS=ubuntu-16.04,label=docker-slave/'
+                                       'ws/output/apt')
+                else:
+                    bigtop_repo_url = ('http://ci.bigtop.apache.org:8080/'
+                                       'job/Bigtop-trunk-repos/'
+                                       'OS=ubuntu-16.04-{},label=docker-slave/'
+                                       'ws/output/apt'.format(repo_arch))
             else:
                 raise BigtopError(
-                    u"Charms only support Bigtop master on Ubuntu/Xenial.")
+                    u"Charms only support Bigtop 'master' on Ubuntu/Xenial.")
         else:
             raise BigtopError(
                 u"Unknown Bigtop version: {}".format(bigtop_version))

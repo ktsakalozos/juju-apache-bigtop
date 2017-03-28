@@ -58,12 +58,6 @@ class TestBigtopUnit(Harness):
         Test to verify that we setup an appropriate repository.
 
         '''
-        # master on xenial should not construct a url with cpu_arch
-        mock_lsb_release.return_value = {'DISTRIB_CODENAME': 'xenial',
-                                         'DISTRIB_ID': 'ubuntu'}
-        self.bigtop.get_repo_url('master')
-        self.assertFalse(mock_utils.cpu_arch.called)
-
         # master on trusty should throw an exception
         mock_lsb_release.return_value = {'DISTRIB_CODENAME': 'trusty',
                                          'DISTRIB_ID': 'ubuntu'}
@@ -80,11 +74,13 @@ class TestBigtopUnit(Harness):
             self.bigtop.get_repo_url,
             'master')
 
-        # 1.1.0 on xenial should construct a repo using the cpu_arch
+        # bad version on xenial should throw an exception
         mock_lsb_release.return_value = {'DISTRIB_CODENAME': 'xenial',
                                          'DISTRIB_ID': 'ubuntu'}
-        self.bigtop.get_repo_url('1.1.0')
-        self.assertTrue(mock_utils.cpu_arch.called)
+        self.assertRaises(
+            BigtopError,
+            self.bigtop.get_repo_url,
+            '0.0.0')
 
     @unittest.skip('noop')
     def test_install_swap(self):
