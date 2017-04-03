@@ -174,7 +174,7 @@ class Bigtop(object):
                     u"Charms only support Bigtop 'master' on Ubuntu/Xenial.")
         else:
             raise BigtopError(
-                u"Unknown Bigtop version: {}".format(bigtop_version))
+                u"Unknown Bigtop version for repo_url: {}".format(bigtop_version))
 
         return bigtop_repo_url
 
@@ -336,11 +336,13 @@ class Bigtop(object):
         bigtop_repo = 'https://github.com/apache/bigtop.git'
         if self.bigtop_version == '1.1.0':
             bigtop_branch = 'branch-1.1'
+        elif self.bigtop_version == '1.2.0':
+            bigtop_branch = 'branch-1.2'
         elif self.bigtop_version == 'master':
             bigtop_branch = 'master'
         else:
             raise BigtopError(
-                u"Unknown Bigtop version: {}".format(self.bigtop_version))
+                u"Unknown Bigtop version for release branch: {}".format(self.bigtop_version))
 
         Path(self.bigtop_dir).rmtree_p()
         # NB: we cannot use the fetch.install_remote helper because that relies
