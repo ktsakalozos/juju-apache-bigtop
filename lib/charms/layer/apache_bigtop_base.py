@@ -118,8 +118,14 @@ class Bigtop(object):
         bigtop_repo_url = None
         release_info = lsb_release()
         dist_name = release_info['DISTRIB_ID'].lower()
+        dist_release = release_info['DISTRIB_RELEASE'].lower()
         dist_series = release_info['DISTRIB_CODENAME'].lower()
         repo_arch = utils.cpu_arch().lower()
+
+        # Fail fast if we're not on ubuntu
+        if dist_name != 'ubuntu':
+            raise BigtopError(
+                u"Charms currently only support Bigtop on Ubuntu.")
 
         if bigtop_version == '1.1.0':
             repo_url = ('http://bigtop-repos.s3.amazonaws.com/releases/'
@@ -134,12 +140,21 @@ class Bigtop(object):
                     repo_arch = "ppc64el"
                 else:
                     dist_series = "trusty"
-            # Substitute params. It's ok if any of these (version, dist,
-            # series, arch) are missing.
+            # Substitute params.
             bigtop_repo_url = repo_url.format(
                 version=self.bigtop_version,
                 dist=dist_name.lower(),
                 series=dist_series.lower(),
+                arch=repo_arch
+            )
+        elif bigtop_version == '1.2.0':
+            repo_url = ('http://bigtop-repos.s3.amazonaws.com/releases/'
+                        '{version}/{dist}/{release}/{arch}')
+            # Substitute params.
+            bigtop_repo_url = repo_url.format(
+                version=self.bigtop_version,
+                dist=dist_name.lower(),
+                release=dist_release.lower(),
                 arch=repo_arch
             )
         elif bigtop_version == 'master':
