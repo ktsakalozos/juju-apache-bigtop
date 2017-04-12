@@ -60,7 +60,8 @@ class TestBigtopUnit(Harness):
         '''
         # master on trusty should throw an exception
         mock_lsb_release.return_value = {'DISTRIB_CODENAME': 'trusty',
-                                         'DISTRIB_ID': 'ubuntu'}
+                                         'DISTRIB_ID': 'ubuntu',
+                                         'DISTRIB_RELEASE': '14.04'}
         self.assertRaises(
             BigtopError,
             self.bigtop.get_repo_url,
@@ -68,7 +69,8 @@ class TestBigtopUnit(Harness):
 
         # master on non-ubuntu should throw an exception
         mock_lsb_release.return_value = {'DISTRIB_CODENAME': 'xenial',
-                                         'DISTRIB_ID': 'centos'}
+                                         'DISTRIB_ID': 'centos',
+                                         'DISTRIB_RELEASE': '7'}
         self.assertRaises(
             BigtopError,
             self.bigtop.get_repo_url,
@@ -76,7 +78,8 @@ class TestBigtopUnit(Harness):
 
         # bad version on xenial should throw an exception
         mock_lsb_release.return_value = {'DISTRIB_CODENAME': 'xenial',
-                                         'DISTRIB_ID': 'ubuntu'}
+                                         'DISTRIB_ID': 'ubuntu',
+                                         'DISTRIB_RELEASE': '16.04'}
         self.assertRaises(
             BigtopError,
             self.bigtop.get_repo_url,

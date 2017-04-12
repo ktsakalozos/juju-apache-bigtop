@@ -602,9 +602,23 @@ class Bigtop(object):
         # Ensure the base dir is owned by ubuntu so we can create a .gradle dir.
         chownr(self.bigtop_base, 'ubuntu', 'ubuntu', chowntopdir=True)
 
+        # Gradle doesn't honor env proxies; check for either http* or HTTP* and
+        # set cli args as needed.
+        http_url = os.environ.get('http_proxy', os.environ.get('HTTP_PROXY'))
+        https_url = os.environ.get('https_proxy', os.environ.get('HTTPS_PROXY'))
+        proxy_args = []
+        if http_url:
+            parsed_url = urlparse(http_url)
+            proxy_args += ['-Dhttp.proxyHost={}'.format(parsed_url.hostname),
+                           '-Dhttp.proxyPort={}'.format(parsed_url.port)]
+        if https_url:
+            parsed_url = urlparse(https_url)
+            proxy_args += ['-Dhttps.proxyHost={}'.format(parsed_url.hostname),
+                           '-Dhttps.proxyPort={}'.format(parsed_url.port)]
+
         # Bigtop can run multiple smoke tests at once; construct the right args.
         comp_args = ['bigtop-tests:smoke-tests:%s:test' % c for c in smoke_components]
-        gradlew_args = ['-Psmoke.tests', '--info'] + comp_args
+        gradlew_args = ['-Psmoke.tests', '--info'] + proxy_args + comp_args
 
         hookenv.log('Bigtop smoke test environment: {}'.format(subprocess_env))
         hookenv.log('Bigtop smoke test args: {}'.format(gradlew_args))
