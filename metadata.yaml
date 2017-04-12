@@ -3,6 +3,7 @@ maintainer: Juju Big Data <bigdata@lists.ubuntu.com>
 summary: Support layer for Bigtop-based charms.
 description: Comprises a java interface and Bigtop lib for Python.
 tags: ["apache", "big_data", "bigtop"]
+min-juju-version: '2.0.0'
 provides:
   java:
     interface: java
