@@ -355,8 +355,10 @@ class Bigtop(object):
 
     def install_puppet_modules(self):
         # Install required modules
-        utils.run_as('root', 'puppet', 'module', 'install', 'puppetlabs-stdlib')
-        utils.run_as('root', 'puppet', 'module', 'install', 'puppetlabs-apt')
+        utils.run_as('root', 'puppet', 'module', 'install',
+                     'puppetlabs-stdlib', '--version', '4.16.0')
+        utils.run_as('root', 'puppet', 'module', 'install',
+                     'puppetlabs-apt', '--version', '2.4.0')
 
     def apply_patches(self):
         charm_dir = Path(hookenv.charm_dir())
