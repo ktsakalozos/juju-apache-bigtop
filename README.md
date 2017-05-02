@@ -1,12 +1,15 @@
-## Overview
+# Overview
 
-This is the base layer for charms that wish to take advantage of
-Apache's Bigtop framework for configuring and deploying services via
+This is the base layer for charms that wish to take advantage of the
+Apache Bigtop platform for configuring and deploying services via
 puppet. [Including this layer][building] gives you access to a Python
 class called Bigtop, which contains, among other things, tools for
 triggering a puppet run.
 
-## Usage
+[building]: https://jujucharms.com/docs/stable/authors-charm-building
+
+
+# Usage
 
 To create a charm using this base layer, first you must include it in
 your `layer.yaml` file:
@@ -17,10 +20,12 @@ includes: ['layer:apache-bigtop-base']
 
 This will fetch the layer from [interfaces.juju.solutions][] and
 incorporate it into your charm. To use the Bigtop class, import it,
-then call its .render_site_yaml and .trigger_puppet routines in
-sequence, like so (you might notice that Bigtop also has an .install
+then call its `.render_site_yaml` and `.trigger_puppet` routines in
+sequence, like so (you might notice that Bigtop also has an `.install`
 routine -- this is run automatically in the reactive handlers of this
 layer; you don't need to call it yourself):
+
+[interfaces.juju.solutions]: http://interfaces.juju.solutions/
 
 ```python
 from charms.layer.apache_bigtop_base import Bigtop
@@ -39,66 +44,82 @@ bigtop.trigger_puppet()
 This tells Bigtop to run puppet and install your service.
 
 How does Bigtop know what to install? You tell it what to install by
-passing a list of "roles" to .render_site_yaml. You may wish to
-consult [this list of valid
-roles](https://github.com/apache/bigtop/blob/master/bigtop-deploy/puppet/manifests/cluster.pp)
-to see what is available.
+passing a list of *roles* to `.render_site_yaml`. You may wish to
+consult [this list of valid roles][roles] to see what is available.
 
-*Note*: Bigtop is also able to generate a list of roles from a
-"component". The Bigtop class is theoretically able to infer
-components from the "hosts" dict that you pass to
-.render_site_yaml. As of this writing, this code path is not well
-tested, however, so you may want to specify roles explicitly. [List of
-valid
-components](https://github.com/apache/bigtop/blob/master/bigtop-deploy/puppet/hieradata/site.yaml)
+[roles]: https://github.com/apache/bigtop/blob/master/bigtop-deploy/puppet/manifests/cluster.pp)
+
+**Note**: Bigtop is also able to generate a list of roles from a
+*component*. The Bigtop class is theoretically able to infer
+components from the *hosts* dict that you pass to
+`.render_site_yaml`. As of this writing, this code path is not well
+tested, so you may want to specify roles explicitly. [List of
+valid components][components].
+
+[components]: https://github.com/apache/bigtop/blob/master/bigtop-deploy/puppet/hieradata/site.yaml
 
 ## Reactive states
 
 This layer will set the following states:
 
-  * **`bigtop.available`** This state is set after Bigtop.install has
+  * *bigtop.available*: This state is set after `Bigtop.install` has
       been run. At this point, you are free to invoke
-      Bigtop.render_site_yaml.
+      `Bigtop.render_site_yaml`.
 
 ## Layer configuration
 
 Bigtop actually takes care of most of the configuration details for
-you. You can specify overrides if needed, either in code, or in your
-layer.yaml, and pass those in in an "overrides" dict when you call
-Bigtop.render_site_yaml.
+you. You can specify overrides if needed -- either in code or in your
+layer.yaml -- and pass those in in an *overrides* dict when you call
+`Bigtop.render_site_yaml`.
 
 Depending on your service, you'll also need to tell Bigtop where to
-find important hosts, by passing a dict of "hosts" to
-Bigtop.render_site_yaml.
+find important hosts, by passing a dict of *hosts* to
+`Bigtop.render_site_yaml`.
 
 The leadership layer may come in handy when it comes to populating
 that hosts dict.
 
 ## Actions
 
-As of this writing, this layer does not define any actions.
+This layer provides a generic `smoke-test` action that will invoke [Bigtop
+smoke tests][bigtop-smoke]. This is meant to serve as a template for
+writing a Bigtop charm-specific test. See the [Zookeeper smoke
+test][zk-smoke] as an example of extending this generic action.
 
-## Contact Information
-
-- <bigdata@lists.ubuntu.com>
+[bigtop-smoke]: https://github.com/apache/bigtop/tree/master/bigtop-tests/smoke-tests
+[zk-smoke]: https://github.com/apache/bigtop/blob/master/bigtop-packages/src/charm/zookeeper/layer-zookeeper/actions/smoke-test
 
 ## Unit Tests
 
 To run unit tests for this layer, change to the root directory of the
-layer in a terminal, and run "tox -c tox_unit.ini". To tweak settings,
+layer in a terminal, and run `tox -c tox_unit.ini`. To tweak settings,
 such as making the tests more or less verbose, edit tox_unit.ini.
 
-## Contributing
+
+# Contributing
 
 This charm has been built on top of the Apache Bigtop project. Bug
 fixes, new features and other contributions to this charm are welcome,
 and encouraged!
 
 For instructions on finding source code, formatting pull requests, and
-getting help, please visit the [Contributing page on our
-wiki](https://github.com/juju-solutions/bigdata-community/wiki/Contributing)
+getting help, please visit the [Contributing page][contributing] on our
+wiki.
 
-## Help
+[contributing]: https://github.com/juju-solutions/bigdata-community/wiki/Contributing
 
+
+# Contact Information
+
+- <bigdata@lists.ubuntu.com>
+
+
+# Resources
+
+- [Apache Bigtop home page](http://bigtop.apache.org/)
+- [Apache Bigtop issue tracking](http://bigtop.apache.org/issue-tracking.html)
+- [Apache Bigtop mailing lists](http://bigtop.apache.org/mail-lists.html)
+- [Juju Big Data](https://jujucharms.com/big-data)
+- [Juju Bigtop charms](https://jujucharms.com/q/bigtop)
 - [Juju mailing list](https://lists.ubuntu.com/mailman/listinfo/juju)
-- [Juju community](https://jujucharms.com/community)

@@ -32,11 +32,11 @@ from charms.layer.apache_bigtop_base import Bigtop
 from charms.reactive import is_state
 
 
-def fail(msg, output=None):
-    if output:
-        hookenv.action_set({'output': output})
+def fail(msg):
+    hookenv.action_set({'outcome': 'failure'})
     hookenv.action_fail(msg)
     sys.exit()
+
 
 if not is_state('bigtop.available'):
     fail('Bigtop is not yet ready')
@@ -49,6 +49,6 @@ if not smoke_components:
 bigtop = Bigtop()
 result = bigtop.run_smoke_tests(smoke_components)
 if result == 'success':
-    hookenv.action_set({'outcome': result})
+    hookenv.action_set({'outcome': 'success'})
 else:
-    fail('failed smoke testing {}'.format(smoke_components), result)
+    fail('{} smoke tests failed with: {}'.format(smoke_components, result))

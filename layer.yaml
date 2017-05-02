@@ -9,6 +9,7 @@ ignore:
 options:
   basic:
     packages:
+      - build-essential # required to build netifaces during pip install
       - git
       - puppet-common
       - unzip
