@@ -355,16 +355,21 @@ class Bigtop(object):
 
     def install_puppet_modules(self):
         # Install required modules
-        utils.run_as('root', 'puppet', 'module', 'install',
-                     'puppetlabs-stdlib', '--version', '4.16.0')
-        utils.run_as('root', 'puppet', 'module', 'install',
-                     'puppetlabs-apt', '--version', '2.4.0')
+        charm_dir = Path(hookenv.charm_dir())
+        for module in sorted(glob('resources/puppet-modules/*.tar.gz')):
+            # Required modules are included in the charms to support network
+            # restricted deployment. Using force install / ignore deps prevents
+            # puppet from calling out to https://forgeapi.puppetlabs.com.
+            utils.run_as('root', 'puppet', 'module', 'install',
+                         '--force', '--ignore-dependencies',
+                         charm_dir / module)
 
     def apply_patches(self):
         charm_dir = Path(hookenv.charm_dir())
         for patch in sorted(glob('resources/bigtop-{}/*.patch'.format(self.bigtop_version))):
             with chdir("{}".format(self.bigtop_base)):
-                utils.run_as('root', 'patch', '-p1', '-s', '-i', charm_dir / patch)
+                utils.run_as('root', 'patch', '-p1', '-s', '-i',
+                             charm_dir / patch)
 
     def render_hiera_yaml(self):
         """
