@@ -4,6 +4,11 @@ summary: Base layer for Apache Bigtop charms.
 description: Comprises a java interface and Bigtop lib for Python.
 tags: ["apache", "big_data", "bigtop", "bigtop-1.2"]
 min-juju-version: '2.0.0'
+resources:
+  bigtop-repo:
+    description: An archive of the Apache Bigtop git repository.
+    type: file
+    filename: bigtop-repo.zip
 provides:
   java:
     interface: java
