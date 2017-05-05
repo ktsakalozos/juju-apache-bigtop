@@ -19,7 +19,6 @@ from charmhelpers.core.host import (
     init_is_systemd,
     lsb_release
 )
-from charmhelpers.payload import archive
 from charms.reactive import when, set_state, remove_state, is_state
 from charms.reactive.helpers import data_changed
 from jujubigdata import utils
@@ -350,25 +349,30 @@ class Bigtop(object):
             new_hash = file_hash(filename)
             old_hash = unitdata.kv().get('bigtop-repo.hash')
             if new_hash != old_hash:
-                hookenv.status_set('maintenance', 'unpacking bigtop-repo')
-                try:
-                    destpath = archive.extract(filepath)
-                except archive.ArchiveError as e:
-                    hookenv.status_set('blocked',
-                                       'failed to unpack bigtop-repo')
-                    raise BigtopError(
-                        u"Failed to unpack {}: {}".format(filepath, e))
-                else:
-                    # We may not know the name of the archive's subdirs, but we
-                    # know we always want to treat the first hit to bigtop.bom
-                    # as the root of our source. Copy this tree to bigtop_base.
-                    for dirpath, dirs, files in os.walk(destpath):
-                        for name in files:
-                            if name == 'bigtop.bom':
-                                Path(dirpath).copytree(
-                                    self.bigtop_base, symlinks=True)
-                                break
-                unitdata.kv().set('bigtop-repo.hash', new_hash)
+                hookenv.status_set('maintenance', 'unzipping bigtop-repo')
+                with chdir(filepath.dirname()):
+                    try:
+                        # NB: we cannot use the payload.archive helper because
+                        # it relies on Zipfile.extractall, which doesn't
+                        # preserve perms (https://bugs.python.org/issue15795).
+                        # Subprocess an unzip the 'ol fashioned way.
+                        utils.run_as('root', 'unzip', '-qo', filepath)
+                    except subprocess.CalledProcessError as e:
+                        hookenv.status_set('blocked',
+                                           'failed to unzip bigtop-repo')
+                        raise BigtopError(
+                            u"Failed to unzip {}: {}".format(filepath, e))
+                    else:
+                        # We may not know the name of the archive's subdirs,
+                        # but we always want to treat the dir with bigtop.bom
+                        # as the source root dir. Copy this tree to bigtop_base.
+                        for dirpath, dirs, files in os.walk(filepath.dirname()):
+                            for name in files:
+                                if name == 'bigtop.bom':
+                                    Path(dirpath).copytree(
+                                        self.bigtop_base, symlinks=True)
+                                    break
+                    unitdata.kv().set('bigtop-repo.hash', new_hash)
             else:
                 hookenv.log('Resource bigtop-repo is unchanged')
         else:
@@ -419,7 +423,7 @@ class Bigtop(object):
     def apply_patches(self):
         charm_dir = Path(hookenv.charm_dir())
         for patch in sorted(glob('resources/bigtop-{}/*.patch'.format(self.bigtop_version))):
-            with chdir("{}".format(self.bigtop_base)):
+            with chdir(self.bigtop_base):
                 utils.run_as('root', 'patch', '-p1', '-s', '-i',
                              charm_dir / patch)
 
@@ -598,7 +602,7 @@ class Bigtop(object):
             ]
 
         # puppet apply runs from the root of the bigtop release source
-        with chdir("{}".format(self.bigtop_base)):
+        with chdir(self.bigtop_base):
             utils.run_as('root', 'puppet', 'apply', *puppet_args)
 
         # Do any post-puppet config on the generated config files.
