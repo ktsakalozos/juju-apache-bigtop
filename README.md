@@ -90,6 +90,20 @@ test][zk-smoke] as an example of extending this generic action.
 [bigtop-smoke]: https://github.com/apache/bigtop/tree/master/bigtop-tests/smoke-tests
 [zk-smoke]: https://github.com/apache/bigtop/blob/master/bigtop-packages/src/charm/zookeeper/layer-zookeeper/actions/smoke-test
 
+## Bigtop Source
+
+Bigtop charms require project source that includes the puppet manifests and
+modules used to deploy Bigtop software. This layer provides the ability to
+specify a zip archive of the [Bigtop source repository][bigtop-repo]. By
+default, the latest tagged release of the Bigtop source repository is used.
+You may specify a different archive when deploying a Bigtop charm. For example:
+
+```
+juju deploy hadoop-namenode --resource bigtop-repo=/tmp/branch-1.1.zip
+```
+
+[bigtop-repo]: https://github.com/apache/bigtop/tree/master
+
 ## Unit Tests
 
 To run unit tests for this layer, change to the root directory of the
