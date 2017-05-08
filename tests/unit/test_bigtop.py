@@ -158,19 +158,23 @@ class TestBigtopUnit(Harness):
         self.bigtop.check_reverse_dns()
         self.assertFalse(unitdata.kv().get('reverse_dns_ok'))
 
-    @mock.patch('charms.layer.apache_bigtop_base.Path')
     @mock.patch('charms.layer.apache_bigtop_base.Bigtop.bigtop_version',
                 new_callable=mock.PropertyMock)
-    def test_fetch_bigtop_release(self, mock_path, mock_ver):
+    @mock.patch('charms.layer.apache_bigtop_base.hookenv')
+    @mock.patch('charms.layer.apache_bigtop_base.Path')
+    def test_fetch_bigtop_release(self, mock_path, mock_hookenv, mock_ver):
         '''Verify we raise an exception if an invalid release is specified.'''
+        mock_hookenv.resource_get.return_value = False
         mock_ver.return_value = 'foo'
         self.assertRaises(
             BigtopError,
             self.bigtop.fetch_bigtop_release)
 
     @mock.patch('charms.layer.apache_bigtop_base.utils')
-    def test_install_puppet_modules(self, mock_utils):
+    @mock.patch('charms.layer.apache_bigtop_base.hookenv')
+    def test_install_puppet_modules(self, mock_hookenv, mock_utils):
         '''Verify that we seem to install puppet modules correctly.'''
+        mock_hookenv.charm_dir.return_value = '/tmp'
 
         def mock_run_as(user, *args):
             '''

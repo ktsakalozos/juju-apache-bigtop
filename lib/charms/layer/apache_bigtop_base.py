@@ -1,21 +1,27 @@
+import ipaddress
+import netifaces
 import os
 import socket
 import subprocess
 import yaml
-from glob import glob
-from urllib.parse import urlparse
 
-import ipaddress
-import netifaces
+from glob import glob
 from path import Path
+from urllib.parse import urlparse
 
 from charms import layer
 from charmhelpers import fetch
-from jujubigdata import utils
 from charmhelpers.core import hookenv, unitdata
-from charmhelpers.core.host import chdir, chownr, init_is_systemd, lsb_release
+from charmhelpers.core.host import (
+    chdir,
+    chownr,
+    file_hash,
+    init_is_systemd,
+    lsb_release
+)
 from charms.reactive import when, set_state, remove_state, is_state
 from charms.reactive.helpers import data_changed
+from jujubigdata import utils
 
 
 class BigtopError(Exception):
@@ -324,47 +330,102 @@ class Bigtop(object):
 
     def fetch_bigtop_release(self):
         """
-        Clone the Bigtop repo.
+        Unpack or clone the Bigtop repo.
 
-        This maps the desired bigtop release version to an upstream repo branch
-        and clones that into our bigtop_dir.
+        This will fetch the upstream source needed to deploy Bigtop
+        applications. To support restricted networks where git cloning may
+        not be possible, this method will first try to unpack the attached
+        bigtop-repo resource. If this does not exist, it will fall back to
+        cloning the upstream repo with an appropriate branch.
 
-        TODO: support deployments in network restricted environments where
-        cloning github is not possible. In that scenario, we should use juju
-        resources to attach the desired release package.
+        The source will be availabe in the bigtop_base directory.
         """
-        bigtop_repo = 'https://github.com/apache/bigtop.git'
-        if self.bigtop_version == '1.1.0':
-            bigtop_branch = 'branch-1.1'
-        elif self.bigtop_version == '1.2.0':
-            bigtop_branch = 'branch-1.2'
-        elif self.bigtop_version == 'master':
-            bigtop_branch = 'master'
-        else:
-            raise BigtopError(
-                u"Unknown Bigtop version for release branch: {}".format(self.bigtop_version))
+        hookenv.status_set('maintenance', 'fetching bigtop source')
+        Path(self.bigtop_base).rmtree_p()
 
-        Path(self.bigtop_dir).rmtree_p()
-        # NB: we cannot use the fetch.install_remote helper because that relies
-        # on the deb-only python3-apt package. Subordinates cannot install
-        # deb dependencies into their venv, so to ensure bigtop subordinate
-        # charms succeed, subprocess the required git clone.
-        utils.run_as('root', 'git', 'clone', bigtop_repo,
-                     '--branch', bigtop_branch, '--single-branch',
-                     self.bigtop_base)
+        filename = hookenv.resource_get('bigtop-repo')
+        filepath = filename and Path(filename)
+        if filepath and filepath.exists() and filepath.stat().st_size:
+            new_hash = file_hash(filename)
+            old_hash = unitdata.kv().get('bigtop-repo.hash')
+            if new_hash != old_hash:
+                hookenv.status_set('maintenance', 'unzipping bigtop-repo')
+                with chdir(filepath.dirname()):
+                    try:
+                        # NB: we cannot use the payload.archive helper because
+                        # it relies on Zipfile.extractall, which doesn't
+                        # preserve perms (https://bugs.python.org/issue15795).
+                        # Subprocess an unzip the 'ol fashioned way.
+                        utils.run_as('root', 'unzip', '-qo', filepath)
+                    except subprocess.CalledProcessError as e:
+                        hookenv.status_set('blocked',
+                                           'failed to unzip bigtop-repo')
+                        raise BigtopError(
+                            u"Failed to unzip {}: {}".format(filepath, e))
+                    else:
+                        # We may not know the name of the archive's subdirs,
+                        # but we always want to treat the dir with bigtop.bom
+                        # as the source root dir. Copy this tree to bigtop_base.
+                        for dirpath, dirs, files in os.walk(filepath.dirname()):
+                            for name in files:
+                                if name == 'bigtop.bom':
+                                    Path(dirpath).copytree(
+                                        self.bigtop_base, symlinks=True)
+                                    break
+                    unitdata.kv().set('bigtop-repo.hash', new_hash)
+            else:
+                hookenv.log('Resource bigtop-repo is unchanged')
+        else:
+            hookenv.status_set('maintenance', 'cloning bigtop repo')
+            bigtop_repo = 'https://github.com/apache/bigtop.git'
+            if self.bigtop_version == '1.1.0':
+                bigtop_branch = 'branch-1.1'
+            elif self.bigtop_version == '1.2.0':
+                bigtop_branch = 'branch-1.2'
+            elif self.bigtop_version == 'master':
+                bigtop_branch = 'master'
+            else:
+                raise BigtopError(
+                    u"Unknown Bigtop version for repo branch: {}".format(self.bigtop_version))
+
+            # NB: we cannot use the fetch.install_remote helper because that
+            # relies on the deb-only python3-apt package. Subordinates cannot
+            # install deb dependencies into their venv, so to ensure bigtop
+            # subordinate charms succeed, subprocess the required git clone.
+            try:
+                utils.run_as('root', 'git', 'clone', bigtop_repo,
+                             '--branch', bigtop_branch, '--single-branch',
+                             self.bigtop_base)
+            except subprocess.CalledProcessError as e:
+                hookenv.status_set('blocked', 'failed to clone bigtop repo')
+                raise BigtopError(
+                    u"Failed to clone {}: {}".format(bigtop_repo, e))
+
+        # Make sure the repo looks like we expect
+        if Path(self.bigtop_base / 'bigtop.bom').exists():
+            hookenv.status_set('maintenance', 'bigtop source fetched')
+        else:
+            hookenv.status_set('blocked', 'invalid bigtop source')
+            raise BigtopError(
+                u"Unrecognized source repo in {}".format(self.bigtop_base))
 
     def install_puppet_modules(self):
         # Install required modules
-        utils.run_as('root', 'puppet', 'module', 'install',
-                     'puppetlabs-stdlib', '--version', '4.16.0')
-        utils.run_as('root', 'puppet', 'module', 'install',
-                     'puppetlabs-apt', '--version', '2.4.0')
+        charm_dir = Path(hookenv.charm_dir())
+        for module in sorted(glob('resources/puppet-modules/*.tar.gz')):
+            # Required modules are included in the charms to support network
+            # restricted deployment. Using force install / ignore deps prevents
+            # puppet from calling out to https://forgeapi.puppetlabs.com.
+            utils.run_as('root', 'puppet', 'module', 'install',
+                         '--force', '--ignore-dependencies',
+                         charm_dir / module)
 
     def apply_patches(self):
         charm_dir = Path(hookenv.charm_dir())
         for patch in sorted(glob('resources/bigtop-{}/*.patch'.format(self.bigtop_version))):
-            with chdir("{}".format(self.bigtop_base)):
-                utils.run_as('root', 'patch', '-p1', '-s', '-i', charm_dir / patch)
+            with chdir(self.bigtop_base):
+                utils.run_as('root', 'patch', '-p1', '-s', '-i',
+                             charm_dir / patch)
 
     def render_hiera_yaml(self):
         """
@@ -541,7 +602,7 @@ class Bigtop(object):
             ]
 
         # puppet apply runs from the root of the bigtop release source
-        with chdir("{}".format(self.bigtop_base)):
+        with chdir(self.bigtop_base):
             utils.run_as('root', 'puppet', 'apply', *puppet_args)
 
         # Do any post-puppet config on the generated config files.
