@@ -1,6 +1,7 @@
 includes:
   - 'layer:basic'
   - 'layer:metrics'
+  - 'layer:nvidia-cuda'
   - 'interface:java'
 ignore:
   - 'tests/unit'

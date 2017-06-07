@@ -1,0 +1,7 @@
+options:
+  install-cuda:
+    type: boolean
+    default: False
+    description: |
+      Install the CUDA binaries if capable hardware is present. This option
+      is False by default, as not all applications support GPU acceleration.
