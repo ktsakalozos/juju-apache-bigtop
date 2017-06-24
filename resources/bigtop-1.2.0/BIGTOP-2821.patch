@@ -1,0 +1,39 @@
+From f18f523f44b5cc959c2ff978a4f45c53417b498b Mon Sep 17 00:00:00 2001
+From: Kevin W Monroe <kevin.monroe@canonical.com>
+Date: Fri, 23 Jun 2017 11:41:54 -0500
+Subject: [PATCH] BIGTOP-2821: expose extra config options for spark
+
+---
+ bigtop-deploy/puppet/modules/spark/manifests/init.pp             | 3 +++
+ bigtop-deploy/puppet/modules/spark/templates/spark-defaults.conf | 7 ++++++-
+ 2 files changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/bigtop-deploy/puppet/modules/spark/manifests/init.pp b/bigtop-deploy/puppet/modules/spark/manifests/init.pp
+index ebb25d077..6fe23dc14 100644
+--- a/bigtop-deploy/puppet/modules/spark/manifests/init.pp
++++ b/bigtop-deploy/puppet/modules/spark/manifests/init.pp
+@@ -146,6 +146,9 @@
+       $use_yarn_shuffle_service = false,
+       $event_log_dir =  "hdfs:///var/log/spark/apps",
+       $history_log_dir = "hdfs:///var/log/spark/apps",
++      $extra_lib_dirs = "/usr/lib/hadoop/lib/native",
++      $driver_mem = "1g",
++      $executor_mem = "1g",
+   ) {
+ 
+ ### This is an ungodly hack to deal with the consequence of adding
+diff --git a/bigtop-deploy/puppet/modules/spark/templates/spark-defaults.conf b/bigtop-deploy/puppet/modules/spark/templates/spark-defaults.conf
+index a99d9bd1f..2ef4a041d 100644
+--- a/bigtop-deploy/puppet/modules/spark/templates/spark-defaults.conf
++++ b/bigtop-deploy/puppet/modules/spark/templates/spark-defaults.conf
+@@ -30,4 +30,9 @@ spark.yarn.historyServer.address <%= @master_host %>:<%= @history_ui_port %>
+ <% end -%>
+ spark.history.ui.port <%= @history_ui_port %>
+ spark.shuffle.service.enabled <%= @use_yarn_shuffle_service %>
+-spark.driver.extraJavaOptions -Djava.library.path=/usr/lib/hadoop/lib/native
++<% if @extra_lib_dirs -%>
++spark.driver.extraLibraryPath <%= @extra_lib_dirs %>
++spark.executor.extraLibraryPath <%= @extra_lib_dirs %>
++<% end -%>
++spark.driver.memory <%= @driver_mem %>
++spark.executor.memory <%= @executor_mem %>
