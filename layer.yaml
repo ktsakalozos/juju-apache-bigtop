@@ -17,7 +17,7 @@ options:
 defines:
   install_java:
     type: string
-    default: 'openjdk-8-jdk'
+    default: 'openjdk-8-jdk-headless'
     description: |
       Tell this charm to install java, instead of relying on the openjdk charm.
       This string should match the name of the java package to be installed.
