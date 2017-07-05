@@ -1,4 +1,4 @@
-from charms.reactive import when_any, when_not, when_none
+from charms.reactive import when_any, when_not, when_none, when
 from charms.reactive import RelationBase, set_state, is_state
 from charms.reactive.helpers import data_changed, any_states
 from charmhelpers.core import hookenv, unitdata
@@ -33,6 +33,17 @@ def fetch_bigtop():
         hookenv.status_set('waiting',
                            'unable to fetch apache bigtop: checksum error'
                            ' (will retry)')
+
+
+@when('bigtop.available', 'config.changed.bigtop-version')
+def change_bigtop_version():
+    # Make sure the config has actually changed; on initial initial,
+    # config.changed.foo is always set. We don't want to run through
+    # fetch_bigtop twice in that case.
+    cur_ver = hookenv.config()['bigtop-version']
+    pre_ver = hookenv.config()['bigtop-version'].previous()
+    if cur_ver != pre_ver:
+        fetch_bigtop()
 
 
 @when_any('java.ready', 'hadoop-plugin.java.ready')
