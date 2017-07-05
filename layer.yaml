@@ -33,7 +33,7 @@ defines:
     default: '1.2.1'
     description: |
         Apache Bigtop release version. The default, '1.2.1' will use the
-        current GA release, Bigtop 1.1.0, for all hiera data, puppet recipes,
+        current GA release, Bigtop 1.2.1, for all hiera data, puppet recipes,
         and installable packages. Set this to 'master' to use the latest
         upstream bits.
 
