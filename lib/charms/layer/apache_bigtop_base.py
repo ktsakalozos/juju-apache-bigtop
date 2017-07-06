@@ -163,7 +163,7 @@ class Bigtop(object):
                 release=dist_release.lower(),
                 arch=repo_arch
             )
-        elif bigtop_version == 'master':
+        elif bigtop_version == '1.2.1' or bigtop_version == 'master':
             if dist_name == 'ubuntu' and dist_series == 'xenial':
                 if repo_arch == "x86_64":
                     bigtop_repo_url = ('http://ci.bigtop.apache.org:8080/'
@@ -380,7 +380,7 @@ class Bigtop(object):
             bigtop_repo = 'https://github.com/apache/bigtop.git'
             if self.bigtop_version == '1.1.0':
                 bigtop_branch = 'branch-1.1'
-            elif self.bigtop_version == '1.2.0':
+            elif self.bigtop_version.startswith('1.2'):
                 bigtop_branch = 'branch-1.2'
             elif self.bigtop_version == 'master':
                 bigtop_branch = 'master'
