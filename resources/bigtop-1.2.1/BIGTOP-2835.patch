@@ -1,0 +1,79 @@
+From 68d8aed511d035378d10aff03baa9c12b56816b7 Mon Sep 17 00:00:00 2001
+From: Kevin W Monroe <kevin.monroe@canonical.com>
+Date: Fri, 7 Jul 2017 16:02:47 +0000
+Subject: [PATCH] BIGTOP-2835: puppet fails when bigtop::jdk_preinstalled is
+ true
+
+Many modules require Package["jdk"]. Ensure it is available regardless
+of the bigtop::jdk_preinstalled option. Modify the jdk class so the
+package resources perform a no-op if bigtop::jdk_preinstalled is true.
+---
+ bigtop-deploy/puppet/manifests/jdk.pp  | 10 ++++++++--
+ bigtop-deploy/puppet/manifests/site.pp |  7 ++-----
+ 2 files changed, 10 insertions(+), 7 deletions(-)
+
+diff --git a/bigtop-deploy/puppet/manifests/jdk.pp b/bigtop-deploy/puppet/manifests/jdk.pp
+index 152e8a41c..fc2eb4e7c 100644
+--- a/bigtop-deploy/puppet/manifests/jdk.pp
++++ b/bigtop-deploy/puppet/manifests/jdk.pp
+@@ -13,6 +13,8 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ 
++$jdk_preinstalled = hiera("bigtop::jdk_preinstalled", false)
++
+ class jdk {
+   case $::operatingsystem {
+     /Debian/: {
+@@ -39,6 +41,7 @@
+       package { 'jdk':
+         name => 'openjdk-8-jdk',
+         ensure => present,
++        noop => $jdk_preinstalled,
+       }
+ 
+      }
+@@ -48,12 +51,14 @@
+       package { 'jdk':
+         name => 'openjdk-8-jdk',
+         ensure  => present,
++        noop => $jdk_preinstalled,
+       }
+     }
+     /(CentOS|Amazon|Fedora)/: {
+       package { 'jdk':
+         name => 'java-1.8.0-openjdk-devel',
+-        ensure => present
++        ensure => present,
++        noop => $jdk_preinstalled,
+       }
+       if ($::operatingsystem == "Fedora") {
+         file { '/usr/lib/jvm/java-1.8.0-openjdk/jre/lib/security/cacerts':
+@@ -65,7 +70,8 @@
+     /OpenSuSE/: {
+       package { 'jdk':
+         name => 'java-1_8_0-openjdk-devel',
+-        ensure => present
++        ensure => present,
++        noop => $jdk_preinstalled,
+       }
+     }
+   }
+diff --git a/bigtop-deploy/puppet/manifests/site.pp b/bigtop-deploy/puppet/manifests/site.pp
+index cd6e8d5ae..4763db659 100644
+--- a/bigtop-deploy/puppet/manifests/site.pp
++++ b/bigtop-deploy/puppet/manifests/site.pp
+@@ -13,11 +13,8 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ 
+-$jdk_preinstalled = hiera("bigtop::jdk_preinstalled", false)
+-if ( ! $jdk_preinstalled ) {
+-   require jdk
+-   Class['jdk'] -> Service<||>
+-}
++require jdk
++Class['jdk'] -> Service<||>
+ 
+ $provision_repo = hiera("bigtop::provision_repo", true)
+ if ($provision_repo) {
