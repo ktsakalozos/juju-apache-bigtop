@@ -17,7 +17,8 @@ from charmhelpers.core.host import (
     chownr,
     file_hash,
     init_is_systemd,
-    lsb_release
+    is_container,
+    lsb_release,
 )
 from charms.reactive import when, set_state, remove_state, is_state
 from charms.reactive.helpers import data_changed
@@ -191,7 +192,10 @@ class Bigtop(object):
         You will then need to call `render_site_yaml` to set up the correct
         configuration and `trigger_puppet` to install the desired components.
         """
-        self.install_swap()
+        if not is_container():
+            # Only configure swap in non-containerized envs. Containers inherit
+            # the host OS swap config.
+            self.install_swap()
         self.install_java()
         self.pin_bigtop_packages()
         self.check_localdomain()
