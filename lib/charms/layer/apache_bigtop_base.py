@@ -57,7 +57,7 @@ class Bigtop(object):
     def __init__(self):
         self.bigtop_dir = '/home/ubuntu/bigtop.release'
         self.options = layer.options('apache-bigtop-base')
-        self._bigtop_version = self.options.get('bigtop_version')
+        self._bigtop_version = hookenv.config()['bigtop_version']
         self._bigtop_apt = self.get_repo_url(self.bigtop_version)
         self._bigtop_base = Path(self.bigtop_dir) / 'bigtop-{}'.format(
             self.bigtop_version)
@@ -202,6 +202,21 @@ class Bigtop(object):
         self.check_reverse_dns()
         self.fetch_bigtop_release()
         self.install_puppet_modules()
+        self.apply_patches()
+        self.render_hiera_yaml()
+
+    def refresh_bigtop_source(self):
+        """
+        Refresh the bigtop source.
+
+        Reset the apt pin, fetch the bigtop repo for the configured bigtop
+        version, apply relevant patches, and setup the hiera.yaml. This method
+        is triggered any time bigtop_version changes to ensure we have the
+        correct repo source in place before we render a site.yaml and trigger
+        puppet.
+        """
+        self.pin_bigtop_packages()
+        self.fetch_bigtop_release()
         self.apply_patches()
         self.render_hiera_yaml()
 
@@ -496,6 +511,17 @@ class Bigtop(object):
         if isinstance(roles, str):
             roles = [roles]
         overrides = overrides or {}
+        if not self.site_yaml.exists():
+            # If our site.yaml doesn't exist, we may be in the middle of a
+            # version change. If so, the application config-changed may be
+            # calling this method before we've put the new bigtop repo bits on
+            # disk. Check for that and refresh if needed. Otherwise, we're no
+            # good without a base site.yaml, so raise an error.
+            if is_state('config.changed.bigtop_version'):
+                self.refresh_bigtop_source()
+            else:
+                raise BigtopError(
+                    u"Bigtop site.yaml not found: {}".format(self.site_yaml))
         site_data = yaml.load(self.site_yaml.text())
 
         # define common defaults

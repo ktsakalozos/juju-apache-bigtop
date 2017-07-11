@@ -22,17 +22,18 @@ def missing_java():
 @when_any('java.ready', 'hadoop-plugin.java.ready', 'install_java')
 @when_not('bigtop.available')
 def fetch_bigtop():
+    hookenv.status_set('maintenance', 'installing apache bigtop base')
     try:
-        hookenv.status_set('maintenance', 'installing apache bigtop base')
         Bigtop().install()
-        hookenv.status_set('maintenance', 'apache bigtop base installed')
-        set_state('bigtop.available')
     except UnhandledSource as e:
         hookenv.status_set('blocked', 'unable to fetch apache bigtop: %s' % e)
     except ChecksumError:
         hookenv.status_set('waiting',
                            'unable to fetch apache bigtop: checksum error'
                            ' (will retry)')
+    else:
+        hookenv.status_set('waiting', 'apache bigtop base installed')
+        set_state('bigtop.available')
 
 
 @when('bigtop.available', 'config.changed.bigtop-version')
@@ -43,7 +44,9 @@ def change_bigtop_version():
     cur_ver = hookenv.config()['bigtop-version']
     pre_ver = hookenv.config()['bigtop-version'].previous()
     if cur_ver != pre_ver:
-        fetch_bigtop()
+        hookenv.log('New bigtop version requested: {}. Refreshing source.'
+                    .format(cur_ver))
+        Bigtop.refresh_bigtop_source()
 
 
 @when_any('java.ready', 'hadoop-plugin.java.ready')
