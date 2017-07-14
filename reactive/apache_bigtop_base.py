@@ -36,17 +36,17 @@ def fetch_bigtop():
         set_state('bigtop.available')
 
 
-@when('bigtop.available', 'config.changed.bigtop-version')
+@when('bigtop.available', 'config.changed.bigtop_version')
 def change_bigtop_version():
     # Make sure the config has actually changed; on initial initial,
     # config.changed.foo is always set. We don't want to run through
     # fetch_bigtop twice in that case.
-    cur_ver = hookenv.config()['bigtop-version']
-    pre_ver = hookenv.config()['bigtop-version'].previous()
+    cur_ver = hookenv.config()['bigtop_version']
+    pre_ver = hookenv.config().previous('bigtop_version')
     if cur_ver != pre_ver:
         hookenv.log('New bigtop version requested: {}. Refreshing source.'
                     .format(cur_ver))
-        Bigtop.refresh_bigtop_source()
+        Bigtop().refresh_bigtop_source()
 
 
 @when_any('java.ready', 'hadoop-plugin.java.ready')

@@ -422,7 +422,7 @@ class Bigtop(object):
 
         # Make sure the repo looks like we expect
         if Path(self.bigtop_base / 'bigtop.bom').exists():
-            hookenv.status_set('maintenance', 'bigtop source fetched')
+            hookenv.status_set('waiting', 'bigtop source fetched')
         else:
             hookenv.status_set('blocked', 'invalid bigtop source')
             raise BigtopError(
