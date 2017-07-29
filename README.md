@@ -62,9 +62,13 @@ valid components][components].
 
 This layer will set the following states:
 
-  * *bigtop.available*: This state is set after `Bigtop.install` has
-      been run. At this point, you are free to invoke
-      `Bigtop.render_site_yaml`.
+  * *bigtop.available*: This state is set after `Bigtop.install` has been run.
+  At this point, you are free to invoke `Bigtop.render_site_yaml`.
+
+  * *bigtop.version.changed*: This state is set after a user has changed
+  the `bigtop_version` config option. At this point, your charm can call
+  `Bigtop.check_bigtop_repo_package` to determine if a new package version
+  is available. See the **Bigtop Versions** section for more details.
 
 ## Layer configuration
 
@@ -82,6 +86,17 @@ that hosts dict.
 
 ## Actions
 
+### reinstall ###
+This layer provides a generic `reinstall` action that will invoke
+`Bigtop.reinstall_repo_packages`. This is meant to serve as a template for
+writing a Bigtop charm-specific action used to upgrade packages when a new
+Bigtop repository has been configured. See the
+[Spark reinstall action][spark-reinstall] as an example of extending this
+generic action.
+
+[spark-reinstall]: https://github.com/apache/bigtop/blob/master/bigtop-packages/src/charm/spark/layer-spark/actions/reinstall
+
+### smoke-test ###
 This layer provides a generic `smoke-test` action that will invoke [Bigtop
 smoke tests][bigtop-smoke]. This is meant to serve as a template for
 writing a Bigtop charm-specific test. See the [Zookeeper smoke
@@ -103,6 +118,29 @@ juju deploy hadoop-namenode --resource bigtop-repo=/tmp/branch-1.1.zip
 ```
 
 [bigtop-repo]: https://github.com/apache/bigtop/tree/master
+
+## Bigtop Versions
+
+The `bigtop_version` config option can be used to change the version of
+Bigtop at runtime:
+
+    juju config <charm> bigtop_version=1.2.1
+
+When changed, this layer will configure a new repository, fetch the new bigtop
+source, patch it as needed, and set the `bigtop.version.changed` state. When
+this state is set, your charm may query package version changes using
+`Bigtop.check_bigtop_repo_package`. If a version has changed, your charm may
+then inform the user that an upgrade is available and direct them to use the
+`reinstall` action to upgrade each affected unit.
+
+If a user wishes to roll back to a previous Bigtop version, they simply
+re-configure `bigtop_version`:
+
+    juju config <charm> bigtop_version=1.2.0
+
+This layer does **not** perform any automatic upgrades. User intervention is
+always required by calling the `reinstall` action before bits are changed
+on disk.
 
 ## Unit Tests
 
