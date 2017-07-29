@@ -38,15 +38,23 @@ def fetch_bigtop():
 
 @when('bigtop.available', 'config.changed.bigtop_version')
 def change_bigtop_version():
+    """
+    Update Bigtop source if a new version has been requested.
+
+    This method will set the 'bigtop.version.changed' state that can be used
+    by charms to check for potential upgrades.
+    """
     # Make sure the config has actually changed; on initial initial,
-    # config.changed.foo is always set. We don't want to run through
-    # fetch_bigtop twice in that case.
+    # config.changed.foo is always set. Check for a previous value that is
+    # different than our current value before fetching new source.
     cur_ver = hookenv.config()['bigtop_version']
     pre_ver = hookenv.config().previous('bigtop_version')
-    if cur_ver != pre_ver:
-        hookenv.log('New bigtop version requested: {}. Refreshing source.'
-                    .format(cur_ver))
-        Bigtop().refresh_bigtop_source()
+    if pre_ver and cur_ver != pre_ver:
+        hookenv.log('Bigtop version {} requested over {}. Refreshing source.'
+                    .format(cur_ver, pre_ver))
+        Bigtop().refresh_bigtop_release()
+        hookenv.status_set('waiting', 'pending scan for package updates')
+        set_state('bigtop.version.changed')
 
 
 @when_any('java.ready', 'hadoop-plugin.java.ready')
