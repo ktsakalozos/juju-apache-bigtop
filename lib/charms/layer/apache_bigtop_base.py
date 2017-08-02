@@ -298,15 +298,16 @@ class Bigtop(object):
         will allow us to query for a new version and inform the user that an
         upgrade is available without actually upgrading any packages.
         """
+        # Substitute template vars
         origin = urlparse(self.bigtop_apt).hostname
-
         with open("resources/pin-bigtop.txt", "r") as pin_file:
-            pin_file = pin_file.read().format(origin=origin, priority=priority)
+            pref_txt = pin_file.read().format(origin=origin, priority=priority)
 
+        # Write the modified contents to an apt pref file
         # NB: prefix the filename with '000' to come before any Bigtop pin.
         # The first preference file read controls the overall apt prefs.
-        with open("/etc/apt/preferences.d/000-bigtop-juju", "w") as out_file:
-            out_file.write(pin_file)
+        pref_dst = Path('/etc/apt/preferences.d/000-bigtop-juju')
+        pref_dst.write_text(pref_txt)
 
     def update_bigtop_repo(self, remove=False):
         """
@@ -368,7 +369,9 @@ class Bigtop(object):
                     'Could not find {} in the configured repo'.format(pkg),
                     hookenv.WARNING)
                 return None
-        return ver_str if ver_str != get_package_version(pkg) else None
+            return ver_str if ver_str != get_package_version(pkg) else None
+        else:
+            raise BigtopError(u"Repo query is only supported on Ubuntu")
 
     def check_localdomain(self):
         """
