@@ -28,7 +28,7 @@ class TestBigtopUnit(Harness):
     @mock.patch('charms.layer.apache_bigtop_base.Bigtop.bigtop_version',
                 new_callable=mock.PropertyMock)
     def setUp(self, mock_ver, mock_hookenv):
-        mock_ver.return_value = 'master'
+        mock_ver.return_value = '1.2.0'
         super(TestBigtopUnit, self).setUp()
         self.bigtop = Bigtop()
 
@@ -510,7 +510,7 @@ class TestBigtopUnit(Harness):
 
         '''
         set_state('apache-bigtop-base.puppet_queued')
-        mock_ver.return_value = 'master'
+        mock_ver.return_value = '1.2.0'
         Bigtop._handle_queued_puppet()
         self.assertTrue(mock_trigger.called)
         self.assertFalse(is_state('apache-bigtop-base.puppet_queued'))
