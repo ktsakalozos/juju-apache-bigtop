@@ -1,6 +1,7 @@
 # Tox
 .tox
 .cache
+.coverage
 __pycache__
 
 # Emacs
