@@ -49,7 +49,7 @@ consult [this list of valid roles][roles] to see what is available.
 
 [roles]: https://github.com/apache/bigtop/blob/master/bigtop-deploy/puppet/manifests/cluster.pp)
 
-**Note**: Bigtop is also able to generate a list of roles from a
+> **Note**: Bigtop is also able to generate a list of roles from a
 *component*. The Bigtop class is theoretically able to infer
 components from the *hosts* dict that you pass to
 `.render_site_yaml`. As of this writing, this code path is not well
@@ -65,9 +65,9 @@ This layer will set the following states:
   * *bigtop.available*: This state is set after `Bigtop.install` has been run.
   At this point, you are free to invoke `Bigtop.render_site_yaml`.
 
-  * *bigtop.version.changed*: This state is set after a user has changed
-  the `bigtop_version` config option. At this point, your charm can call
-  `Bigtop.check_bigtop_repo_package` to determine if a new package version
+  * *bigtop.version.changed*: (experimental) This state is set after a user has
+  changed the `bigtop_version` config option. At this point, your charm can
+  call `Bigtop.check_bigtop_repo_package` to determine if a new package version
   is available. See the **Bigtop Versions** section for more details.
 
 ## Layer configuration
@@ -86,13 +86,13 @@ that hosts dict.
 
 ## Actions
 
-### reinstall ###
+### reinstall (experimental) ###
 This layer provides a generic `reinstall` action that will invoke
 `Bigtop.reinstall_repo_packages`. This is meant to serve as a template for
 writing a Bigtop charm-specific action used to upgrade packages when a new
-Bigtop repository has been configured. See the
-[Spark reinstall action][spark-reinstall] as an example of extending this
-generic action.
+Bigtop repository has been configured. See the **Bigtop Versions** section for
+more details. For an example charm that extends this generic action, see the
+[Spark reinstall action][spark-reinstall].
 
 [spark-reinstall]: https://github.com/apache/bigtop/blob/master/bigtop-packages/src/charm/spark/layer-spark/actions/reinstall
 
@@ -121,6 +121,11 @@ juju deploy hadoop-namenode --resource bigtop-repo=/tmp/branch-1.1.zip
 
 ## Bigtop Versions
 
+> **Note**: Support for changing Bigtop versions at runtime should be
+considered experimental in the current release. Users are encouraged to try
+this feature in development environments. Changing the Bigtop version in a
+production deployment is not yet recommended.
+
 The `bigtop_version` config option can be used to change the version of
 Bigtop at runtime:
 
@@ -139,14 +144,13 @@ re-configure `bigtop_version`:
     juju config <charm> bigtop_version=1.2.0
 
 This layer does **not** perform any automatic upgrades. User intervention is
-always required by calling the `reinstall` action before bits are changed
-on disk.
+always required by calling the `reinstall` action to update system packages.
 
 ## Unit Tests
 
 To run unit tests for this layer, change to the root directory of the
 layer in a terminal, and run `tox -c tox_unit.ini`. To tweak settings,
-such as making the tests more or less verbose, edit tox_unit.ini.
+such as making the tests more or less verbose, edit `tox_unit.ini`.
 
 
 # Contributing

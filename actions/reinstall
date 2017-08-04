@@ -48,4 +48,5 @@ if result == 'success':
     hookenv.status_set('active', 'reinstall was successful')
     hookenv.action_set({'outcome': 'success'})
 else:
-    fail("Failed to reinstall. Check 'juju debug-log' for details.")
+    fail('Reinstall failed; hiera data and package repos have been restored '
+         'to the previous working state.')

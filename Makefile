@@ -5,6 +5,7 @@ all: lint unit_test
 
 .PHONY: clean
 clean:
+	@rm -f .coverage
 	@rm -rf .tox
 
 .PHONY: apt_prereqs
