@@ -611,6 +611,44 @@ class TestBigtopUnit(Harness):
             "test output"
         )
 
+    @mock.patch('charms.layer.apache_bigtop_base.Bigtop.update_bigtop_repo')
+    @mock.patch('charms.layer.apache_bigtop_base.Bigtop.render_hiera_yaml')
+    @mock.patch('charms.layer.apache_bigtop_base.Path')
+    @mock.patch('charms.layer.apache_bigtop_base.Bigtop.pin_bigtop_packages')
+    @mock.patch('charms.layer.apache_bigtop_base.Bigtop.trigger_puppet')
+    @mock.patch('charms.layer.apache_bigtop_base.subprocess')
+    def test_reinstall_repo_packages(self, mock_sub, mock_trigger, mock_pin,
+                                     mock_path, mock_hiera, mock_update):
+        '''
+        Verify that we attempt to trigger puppet during a reinstall, and handle
+        exceptions as expected.
+
+        '''
+        class MockException(Exception):
+            pass
+        MockException.output = "test output"
+        mock_sub.CalledProcessError = MockException
+
+        def mock_raise(*args, **kwargs):
+            raise MockException('foo!')
+
+        # Should return error message if apt-get remove raised an Exception.
+        mock_sub.check_call.side_effect = mock_raise
+        self.assertEqual(
+            self.bigtop.reinstall_repo_packages(remove_pkgs='foo bar-*'),
+            "test output"
+        )
+
+        # Should call pin twice if trigger puppet fails (once to raise prio,
+        # once again to drop it back down)
+        mock_trigger.side_effect = mock_raise
+        self.assertEqual(self.bigtop.reinstall_repo_packages(), 'failed')
+        self.assertEqual(mock_pin.call_count, 2)
+
+        # Should return 'success' if all went well.
+        mock_trigger.side_effect = None
+        self.assertEqual(self.bigtop.reinstall_repo_packages(), 'success')
+
     def test_get_ip_for_interface(self):
         '''
         Test to verify that our get_ip_for_interface method does sensible

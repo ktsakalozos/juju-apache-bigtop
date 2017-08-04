@@ -811,7 +811,7 @@ class Bigtop(object):
             cmd = ['apt-get', 'remove', '-qqy', remove_pkgs]
             try:
                 subprocess.check_call(cmd)
-            except subprocess.CalledProcessError:
+            except subprocess.CalledProcessError as e:
                 # NB: at this point, we have not altered our apt repo or
                 # system-wide puppet config. Simply trigger puppet to put the
                 # system back to the way it was.
@@ -819,23 +819,40 @@ class Bigtop(object):
                     'Package removal failed; triggering puppet apply to return '
                     'the system to the previous working state.', hookenv.ERROR)
                 self.trigger_puppet()
-                return
+                return e.output
 
-        # Pin the repo, point to the right bigtop source, and trigger puppet.
+        # Pin the new repo
         # NB: When configuring a new bigtop version, the repo priority is set
         # low. Set it higher so new repo packages will take precedent over the
         # currently installed versions.
         self.pin_bigtop_packages(priority=900)
+
+        # Backup hiera.yaml; render a new one so it points to the new source
+        hiera_src = Path('/etc/puppet/hiera.yaml')
+        hiera_bak = Path('/etc/puppet/hiera.yaml.juju')
+        hiera_src.copyfile(hiera_bak)
         self.render_hiera_yaml()
-        self.trigger_puppet()
 
-        # We added a new repo when the bigtop version changed. Remove it now
-        # that our reinstallation is complete.
-        self.update_bigtop_repo(remove=True)
+        # call puppet apply; roll back on failure
+        try:
+            self.trigger_puppet()
+        except subprocess.CalledProcessError:
+            hookenv.log(
+                'Puppet apply failed. Restoring hiera.yaml and repo to the '
+                'previous working state.', hookenv.ERROR)
+            hiera_bak.copyfile(hiera_src)
+            self.pin_bigtop_packages(priority=10)
+            return "failed"
+        else:
+            # We added a new repo when the bigtop version changed. Remove it
+            # now that our reinstallation is complete.
+            self.update_bigtop_repo(remove=True)
 
-        # We've processed the version change; remove our changed state
-        remove_state('bigtop.version.changed')
-        return "success"
+            # We've processed the version change; remove our changed state
+            remove_state('bigtop.version.changed')
+            return "success"
+        finally:
+            hiera_bak.remove()
 
 
 def get_hadoop_version():
