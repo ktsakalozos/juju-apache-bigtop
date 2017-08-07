@@ -8,4 +8,4 @@ install:
  - pip install tox
 
 script:
- - make all
+ - make lint unit_test
