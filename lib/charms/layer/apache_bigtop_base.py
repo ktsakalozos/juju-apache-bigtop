@@ -57,7 +57,7 @@ class Bigtop(object):
     def __init__(self):
         self.bigtop_dir = '/home/ubuntu/bigtop.release'
         self.options = layer.options('apache-bigtop-base')
-        self._bigtop_version = self.options.get('bigtop_version')
+        self._bigtop_version = hookenv.config()['bigtop_version']
         self._bigtop_apt = self.get_repo_url(self.bigtop_version)
         self._bigtop_base = Path(self.bigtop_dir) / 'bigtop-{}'.format(
             self.bigtop_version)
@@ -166,16 +166,10 @@ class Bigtop(object):
             )
         elif bigtop_version == '1.2.1' or bigtop_version == 'master':
             if dist_name == 'ubuntu' and dist_series == 'xenial':
-                if repo_arch == "x86_64":
-                    bigtop_repo_url = ('http://ci.bigtop.apache.org:8080/'
-                                       'job/Bigtop-trunk-repos/'
-                                       'OS=ubuntu-16.04,label=docker-slave/'
-                                       'ws/output/apt')
-                else:
-                    bigtop_repo_url = ('http://ci.bigtop.apache.org:8080/'
-                                       'job/Bigtop-trunk-repos/'
-                                       'OS=ubuntu-16.04-{},label=docker-slave/'
-                                       'ws/output/apt'.format(repo_arch))
+                bigtop_repo_url = ('https://ci.bigtop.apache.org/'
+                                   'job/Bigtop-trunk-repos/'
+                                   'OS=ubuntu-16.04,label=docker-slave/'
+                                   'ws/output/apt')
             else:
                 raise BigtopError(
                     u"Charms only support Bigtop 'master' on Ubuntu/Xenial.")
@@ -204,6 +198,25 @@ class Bigtop(object):
         self.install_puppet_modules()
         self.apply_patches()
         self.render_hiera_yaml()
+
+    def refresh_bigtop_release(self):
+        """
+        Refresh the bigtop source.
+
+        Reset the apt pin, fetch the bigtop source for the configured bigtop
+        version, apply relevant patches, and setup the apt repo. This method
+        is triggered any time bigtop_version changes to ensure we have the
+        correct repo source in place before we render a site.yaml and trigger
+        puppet.
+        """
+        # NB: set a low priority so we can query new package versions, but
+        # won't accidentally install them until the user runs an upgrade action.
+        self.pin_bigtop_packages(priority=10)
+        self.fetch_bigtop_release()
+        self.apply_patches()
+
+        # Add the apt repo so we can query for package changes.
+        self.update_bigtop_repo()
 
     def install_swap(self):
         """
@@ -251,7 +264,6 @@ class Bigtop(object):
     def install_java(self):
         """
         Possibly install java.
-
         """
         java_package = self.options.get("install_java")
         if not java_package:
@@ -271,18 +283,89 @@ class Bigtop(object):
             r'#? *JAVA_HOME *=.*': 'JAVA_HOME={}'.format(java_home_),
         }, append_non_matches=True)
 
-    def pin_bigtop_packages(self):
+    def pin_bigtop_packages(self, priority=900):
         """
-        Tell Ubuntu to use the Bigtop repo where possible, so that we
-        don't actually fetch newer packages from universe.
+        By default, give a higher priority to the Bigtop repo so that we don't
+        fetch newer packages from universe.
+
+        During an upgrade, we want to set the priority < 100. This
+        will allow us to query for a new version and inform the user that an
+        upgrade is available without actually upgrading any packages.
         """
+        # Substitute template vars
         origin = urlparse(self.bigtop_apt).hostname
-
         with open("resources/pin-bigtop.txt", "r") as pin_file:
-            pin_file = pin_file.read().format(origin=origin)
+            pref_txt = pin_file.read().format(origin=origin, priority=priority)
 
-        with open("/etc/apt/preferences.d/bigtop-999", "w") as out_file:
-            out_file.write(pin_file)
+        # Write the modified contents to an apt pref file
+        # NB: prefix the filename with '000' to come before any Bigtop pin.
+        # The first preference file read controls the overall apt prefs.
+        pref_dst = Path('/etc/apt/preferences.d/000-bigtop-juju')
+        pref_dst.write_text(pref_txt)
+
+    def update_bigtop_repo(self, remove=False):
+        """
+        Add or Remove a bigtop repository.
+
+        Typically, the Bigtop repository is configured when running 'puppet
+        apply'. However, sometimes the system needs to know about a repo
+        outside of puppet. For example, when changing the bigtop version, we
+        use this method to add a new repo and query for package updates
+        without actually installing anything.
+
+        :param: bool remove: True to remove the repo; False to add it
+        """
+        distro = lsb_release()['DISTRIB_ID'].lower()
+        if distro == 'ubuntu':
+            # NB: inner quotes are required so add-apt-repo sees the whole
+            # string as the repo.
+            repo = "deb {} bigtop contrib".format(self.bigtop_apt)
+            flags = '-yur' if remove else '-yu'
+            cmd = ['add-apt-repository', flags, repo]
+            try:
+                subprocess.check_call(cmd)
+            except subprocess.CalledProcessError:
+                hookenv.log('Failed to update the bigtop repo with: {}'.format(
+                            ' '.join(cmd)), hookenv.ERROR)
+            else:
+                hookenv.log('Successfully updated the bigtop repo',
+                            hookenv.INFO)
+
+    def check_bigtop_repo_package(self, pkg):
+        """
+        Return the package version from the repo if different than the version
+        that is currently installed .
+
+        :param: str pkg: package name as known by the package manager
+        :returns: str ver_str: version of new repo package, or None
+        """
+        distro = lsb_release()['DISTRIB_ID'].lower()
+        if distro == 'ubuntu':
+            # NB: we cannot use the charmhelpers.fetch.apt_cache nor the
+            # apt module from the python3-apt deb as they are only available
+            # as system packages. Charms with use_system_packages=False in
+            # layer.yaml would fail. Subprocess apt-cache madison instead.
+            madison_cmd = ['apt-cache', 'madison', pkg]
+            grep_cmd = ['grep', self.bigtop_apt]
+            p1 = subprocess.Popen(madison_cmd, stdout=subprocess.PIPE)
+            p2 = subprocess.Popen(grep_cmd, stdin=p1.stdout,
+                                  stdout=subprocess.PIPE)
+            p1.stdout.close()
+            madison_output = p2.communicate()[0].strip().decode()
+            p1.wait()
+
+            # madison_output will look like this:
+            #  spark-core |    2.1.1-1 | <repo>
+            try:
+                ver_str = madison_output.split('|')[1].strip()
+            except IndexError:
+                hookenv.log(
+                    'Could not find {} in the configured repo'.format(pkg),
+                    hookenv.WARNING)
+                return None
+            return ver_str if ver_str != get_package_version(pkg) else None
+        else:
+            raise BigtopError(u"Repo query is only supported on Ubuntu")
 
     def check_localdomain(self):
         """
@@ -407,7 +490,7 @@ class Bigtop(object):
 
         # Make sure the repo looks like we expect
         if Path(self.bigtop_base / 'bigtop.bom').exists():
-            hookenv.status_set('maintenance', 'bigtop source fetched')
+            hookenv.status_set('waiting', 'bigtop source fetched')
         else:
             hookenv.status_set('blocked', 'invalid bigtop source')
             raise BigtopError(
@@ -496,6 +579,9 @@ class Bigtop(object):
         if isinstance(roles, str):
             roles = [roles]
         overrides = overrides or {}
+        if not self.site_yaml.exists():
+            raise BigtopError(
+                u"Bigtop site.yaml not found: {}".format(self.site_yaml))
         site_data = yaml.load(self.site_yaml.text())
 
         # define common defaults
@@ -698,6 +784,70 @@ class Bigtop(object):
                 smoke_out = e.output
         return smoke_out
 
+    def reinstall_repo_packages(self, remove_pkgs=None):
+        """
+        Trigger a puppet apply to reinstall packages from a bigtop repository.
+
+        Call this after a new bigtop version has been configured by the user.
+        Typically called from a charm action, this method will:
+        - optionally remove packages before reconfiguring the system
+        - ensure the repo for the current bigtop version has priority
+        - render a site-wide hiera.yaml pointing to the current bigtop source
+        - trigger puppet apply
+
+        :param: str remove_pkgs: 'apt-get remove' this prior to any reinstall
+        """
+        # To support both upgrades and downgrades with this method, we may need
+        # a package list that we can use to remove all charm-related packages
+        # and ensure reinstalled versions are accurate. This can be any string
+        # that would be valid for 'apt-get remove'.
+        if remove_pkgs:
+            cmd = ['apt-get', 'remove', '-qqy', remove_pkgs]
+            try:
+                subprocess.check_call(cmd)
+            except subprocess.CalledProcessError as e:
+                # NB: at this point, we have not altered our apt repo or
+                # system-wide puppet config. Simply trigger puppet to put the
+                # system back to the way it was.
+                hookenv.log(
+                    'Package removal failed; triggering puppet apply to return '
+                    'the system to the previous working state.', hookenv.ERROR)
+                self.trigger_puppet()
+                return e.output
+
+        # Pin the new repo
+        # NB: When configuring a new bigtop version, the repo priority is set
+        # low. Set it higher so new repo packages will take precedent over the
+        # currently installed versions.
+        self.pin_bigtop_packages(priority=900)
+
+        # Backup hiera.yaml; render a new one so it points to the new source
+        hiera_src = Path('/etc/puppet/hiera.yaml')
+        hiera_bak = Path('/etc/puppet/hiera.yaml.juju')
+        hiera_src.copyfile(hiera_bak)
+        self.render_hiera_yaml()
+
+        # call puppet apply; roll back on failure
+        try:
+            self.trigger_puppet()
+        except subprocess.CalledProcessError:
+            hookenv.log(
+                'Puppet apply failed. Restoring hiera.yaml and repo to the '
+                'previous working state.', hookenv.ERROR)
+            hiera_bak.copyfile(hiera_src)
+            self.pin_bigtop_packages(priority=10)
+            return "failed"
+        else:
+            # We added a new repo when the bigtop version changed. Remove it
+            # now that our reinstallation is complete.
+            self.update_bigtop_repo(remove=True)
+
+            # We've processed the version change; remove our changed state
+            remove_state('bigtop.version.changed')
+            return "success"
+        finally:
+            hiera_bak.remove()
+
 
 def get_hadoop_version():
     jhome = java_home()
@@ -721,7 +871,7 @@ def get_hadoop_version():
 
 def get_package_version(pkg):
     """
-    Return a version string for a given package name.
+    Return a version string for an installed package name.
 
     :param: str pkg: package name as known by the package manager
     :returns: str ver_str: version string from package manager, or empty string
@@ -739,7 +889,7 @@ def get_package_version(pkg):
                 ver_str = subprocess.check_output(cmd).strip().decode()
             except subprocess.CalledProcessError as e:
                 hookenv.log(
-                    'Error getting package version: {}'.format(e.output),
+                    'Error getting local package version: {}'.format(e.output),
                     hookenv.ERROR)
         return ver_str
     else:

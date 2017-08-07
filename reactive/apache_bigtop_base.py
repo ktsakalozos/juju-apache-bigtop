@@ -1,4 +1,4 @@
-from charms.reactive import when_any, when_not, when_none
+from charms.reactive import when_any, when_not, when_none, when
 from charms.reactive import RelationBase, set_state, is_state
 from charms.reactive.helpers import data_changed, any_states
 from charmhelpers.core import hookenv, unitdata
@@ -22,17 +22,39 @@ def missing_java():
 @when_any('java.ready', 'hadoop-plugin.java.ready', 'install_java')
 @when_not('bigtop.available')
 def fetch_bigtop():
+    hookenv.status_set('maintenance', 'installing apache bigtop base')
     try:
-        hookenv.status_set('maintenance', 'installing apache bigtop base')
         Bigtop().install()
-        hookenv.status_set('maintenance', 'apache bigtop base installed')
-        set_state('bigtop.available')
     except UnhandledSource as e:
         hookenv.status_set('blocked', 'unable to fetch apache bigtop: %s' % e)
     except ChecksumError:
         hookenv.status_set('waiting',
                            'unable to fetch apache bigtop: checksum error'
                            ' (will retry)')
+    else:
+        hookenv.status_set('waiting', 'apache bigtop base installed')
+        set_state('bigtop.available')
+
+
+@when('bigtop.available', 'config.changed.bigtop_version')
+def change_bigtop_version():
+    """
+    Update Bigtop source if a new version has been requested.
+
+    This method will set the 'bigtop.version.changed' state that can be used
+    by charms to check for potential upgrades.
+    """
+    # Make sure the config has actually changed; on initial initial,
+    # config.changed.foo is always set. Check for a previous value that is
+    # different than our current value before fetching new source.
+    cur_ver = hookenv.config()['bigtop_version']
+    pre_ver = hookenv.config().previous('bigtop_version')
+    if pre_ver and cur_ver != pre_ver:
+        hookenv.log('Bigtop version {} requested over {}. Refreshing source.'
+                    .format(cur_ver, pre_ver))
+        Bigtop().refresh_bigtop_release()
+        hookenv.status_set('waiting', 'pending scan for package updates')
+        set_state('bigtop.version.changed')
 
 
 @when_any('java.ready', 'hadoop-plugin.java.ready')

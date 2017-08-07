@@ -24,10 +24,11 @@ class TestBigtopUnit(Harness):
 
     '''
 
+    @mock.patch('charms.layer.apache_bigtop_base.hookenv')
     @mock.patch('charms.layer.apache_bigtop_base.Bigtop.bigtop_version',
                 new_callable=mock.PropertyMock)
-    def setUp(self, mock_ver):
-        mock_ver.return_value = 'master'
+    def setUp(self, mock_ver, mock_hookenv):
+        mock_ver.return_value = '1.2.0'
         super(TestBigtopUnit, self).setUp()
         self.bigtop = Bigtop()
 
@@ -41,53 +42,130 @@ class TestBigtopUnit(Harness):
         self.assertEqual(type(self.bigtop.bigtop_base), Path)
         self.assertEqual(type(self.bigtop.site_yaml), Path)
 
-    @unittest.skip('noop')
-    def test_install(self):
+    @mock.patch('charms.layer.apache_bigtop_base.Bigtop.render_hiera_yaml')
+    @mock.patch('charms.layer.apache_bigtop_base.Bigtop.apply_patches')
+    @mock.patch('charms.layer.apache_bigtop_base.Bigtop.install_puppet_modules')
+    @mock.patch('charms.layer.apache_bigtop_base.Bigtop.fetch_bigtop_release')
+    @mock.patch('charms.layer.apache_bigtop_base.Bigtop.check_reverse_dns')
+    @mock.patch('charms.layer.apache_bigtop_base.Bigtop.check_localdomain')
+    @mock.patch('charms.layer.apache_bigtop_base.Bigtop.pin_bigtop_packages')
+    @mock.patch('charms.layer.apache_bigtop_base.Bigtop.install_java')
+    @mock.patch('charms.layer.apache_bigtop_base.Bigtop.install_swap')
+    @mock.patch('charms.layer.apache_bigtop_base.is_container')
+    def test_install(self, mock_container, mock_swap, mock_java, mock_pin,
+                     mock_local, mock_dns, mock_fetch, mock_puppet, mock_apply,
+                     mock_hiera):
         '''
-        Nothing to test that is not covered by the linter, or covered by
-        integration tests.
+        Verify install calls expected class methods.
 
         '''
+        mock_container.return_value = False
+        self.bigtop.install()
+        self.assertTrue(mock_swap.called)
+        self.assertTrue(mock_java.called)
+        self.assertTrue(mock_pin.called)
+        self.assertTrue(mock_local.called)
+        self.assertTrue(mock_dns.called)
+        self.assertTrue(mock_fetch.called)
+        self.assertTrue(mock_puppet.called)
+        self.assertTrue(mock_apply.called)
+        self.assertTrue(mock_hiera.called)
+
+    @mock.patch('charms.layer.apache_bigtop_base.Bigtop.update_bigtop_repo')
+    @mock.patch('charms.layer.apache_bigtop_base.Bigtop.apply_patches')
+    @mock.patch('charms.layer.apache_bigtop_base.Bigtop.fetch_bigtop_release')
+    @mock.patch('charms.layer.apache_bigtop_base.Bigtop.pin_bigtop_packages')
+    def test_refresh_bigtop_release(self, mock_pin, mock_fetch, mock_apply,
+                                    mock_update):
+        '''
+        Verify refresh calls expected class methods.
+
+        '''
+        self.bigtop.refresh_bigtop_release()
+        self.assertTrue(mock_pin.called)
+        self.assertTrue(mock_fetch.called)
+        self.assertTrue(mock_apply.called)
+        self.assertTrue(mock_update.called)
 
     @mock.patch('charms.layer.apache_bigtop_base.utils')
     @mock.patch('charms.layer.apache_bigtop_base.layer.options')
     @mock.patch('charms.layer.apache_bigtop_base.lsb_release')
-    def test_get_repo_url(self, mock_lsb_release,
+    @mock.patch('charms.layer.apache_bigtop_base.Bigtop.bigtop_version',
+                new_callable=mock.PropertyMock)
+    def test_get_repo_url(self, mock_ver, mock_lsb_release,
                           mock_options, mock_utils):
         '''
-        Test to verify that we setup an appropriate repository.
+        Verify that we setup an appropriate repository.
 
         '''
-        # master on trusty should throw an exception
-        mock_lsb_release.return_value = {'DISTRIB_CODENAME': 'trusty',
-                                         'DISTRIB_ID': 'ubuntu',
-                                         'DISTRIB_RELEASE': '14.04'}
-        self.assertRaises(
-            BigtopError,
-            self.bigtop.get_repo_url,
-            'master')
+        mock_ver.return_value = '1.1.0'
 
-        # master on non-ubuntu should throw an exception
-        mock_lsb_release.return_value = {'DISTRIB_CODENAME': 'xenial',
+        # non-ubuntu should throw an exception
+        mock_lsb_release.return_value = {'DISTRIB_CODENAME': 'foo',
                                          'DISTRIB_ID': 'centos',
                                          'DISTRIB_RELEASE': '7'}
         self.assertRaises(
             BigtopError,
             self.bigtop.get_repo_url,
+            '1.1.0')
+
+        # 1.1.0 on trusty/non-power
+        mock_utils.cpu_arch.return_value = 'foo'
+        mock_lsb_release.return_value = {'DISTRIB_CODENAME': 'trusty',
+                                         'DISTRIB_ID': 'ubuntu',
+                                         'DISTRIB_RELEASE': '14.04'}
+        self.assertEqual(self.bigtop.get_repo_url('1.1.0'),
+                         ('http://bigtop-repos.s3.amazonaws.com/releases/'
+                          '1.1.0/ubuntu/trusty/foo'))
+
+        # 1.1.0 on trusty/power
+        mock_utils.cpu_arch.return_value = 'ppc64le'
+        self.assertEqual(self.bigtop.get_repo_url('1.1.0'),
+                         ('http://bigtop-repos.s3.amazonaws.com/releases/'
+                          '1.1.0/ubuntu/vivid/ppc64el'))
+
+        # master should fail on trusty
+        self.assertRaises(
+            BigtopError,
+            self.bigtop.get_repo_url,
             'master')
 
-        # bad version on xenial should throw an exception
+        # 1.2.0 on xenial
+        mock_ver.return_value = '1.2.0'
+        mock_utils.cpu_arch.return_value = 'foo'
         mock_lsb_release.return_value = {'DISTRIB_CODENAME': 'xenial',
                                          'DISTRIB_ID': 'ubuntu',
                                          'DISTRIB_RELEASE': '16.04'}
+        self.assertEqual(self.bigtop.get_repo_url('1.2.0'),
+                         ('http://bigtop-repos.s3.amazonaws.com/releases/'
+                          '1.2.0/ubuntu/16.04/foo'))
+
+        # master on xenial
+        mock_ver.return_value = 'master'
+        mock_utils.cpu_arch.return_value = 'foo'
+        self.assertEqual(self.bigtop.get_repo_url('master'),
+                         ('https://ci.bigtop.apache.org/job/Bigtop-trunk-repos/'
+                          'OS=ubuntu-16.04,label=docker-slave/ws/output/apt'))
+
+        # test bad version on xenial should throw an exception
         self.assertRaises(
             BigtopError,
             self.bigtop.get_repo_url,
             '0.0.0')
 
-    @unittest.skip('noop')
-    def test_install_swap(self):
-        '''Mainly system calls -- covered by linter and basic deploy tests.'''
+    @mock.patch('charms.layer.apache_bigtop_base.subprocess')
+    def test_install_swap_when_swap_exists(self, mock_sub):
+        '''
+        Verify we do attempt to install swap space if it already exists.
+
+        '''
+        mock_sub.check_output.return_value = b"foo\nbar"
+        mock_sub.reset_mock()
+        self.bigtop.install_swap()
+
+        # We reset the mock, so here we're verifying no other subprocess
+        # calls were made.
+        mock_sub.check_call.assert_not_called()
 
     @mock.patch('charms.layer.apache_bigtop_base.lsb_release')
     @mock.patch('charms.layer.apache_bigtop_base.utils')
@@ -125,6 +203,125 @@ class TestBigtopUnit(Harness):
         self.bigtop.install_java()
         self.assertTrue(mock_fetch.add_source.called)
         self.assertTrue(mock_fetch.apt_update.called)
+
+    @mock.patch('charms.layer.apache_bigtop_base.Path')
+    def test_pin_bigtop_packages(self, mock_path):
+        '''
+        Verify the apt template is opened and written to a (mocked) file.
+
+        '''
+        mock_dst = mock.Mock()
+        mock_path.return_value = mock_dst
+
+        self.bigtop.pin_bigtop_packages(priority=100)
+        self.assertTrue(mock_dst.write_text.called)
+
+    @mock.patch('charms.layer.apache_bigtop_base.subprocess')
+    @mock.patch('charms.layer.apache_bigtop_base.lsb_release')
+    @mock.patch('charms.layer.apache_bigtop_base.Bigtop.bigtop_apt',
+                new_callable=mock.PropertyMock)
+    def test_update_bigtop_repo(self, mock_apt, mock_lsb_release, mock_sub):
+        '''
+        Verify a bigtop apt repository is added/removed.
+
+        '''
+        # non-ubuntu should not invoke a subprocess call
+        mock_lsb_release.return_value = {'DISTRIB_CODENAME': 'foo',
+                                         'DISTRIB_ID': 'centos',
+                                         'DISTRIB_RELEASE': '7'}
+        self.bigtop.update_bigtop_repo()
+        mock_sub.check_call.assert_not_called()
+
+        # verify args when adding a repo on ubuntu
+        mock_apt.return_value = 'foo'
+        mock_lsb_release.return_value = {'DISTRIB_CODENAME': 'xenial',
+                                         'DISTRIB_ID': 'ubuntu',
+                                         'DISTRIB_RELEASE': '16.04'}
+        self.bigtop.update_bigtop_repo()
+        mock_sub.check_call.assert_called_with(
+            ['add-apt-repository', '-yu', 'deb foo bigtop contrib'])
+
+        # verify args when removing a repo on ubuntu
+        self.bigtop.update_bigtop_repo(remove=True)
+        mock_sub.check_call.assert_called_with(
+            ['add-apt-repository', '-yur', 'deb foo bigtop contrib'])
+
+        # verify we handle check_call errors
+        class MockException(Exception):
+            pass
+        mock_sub.CalledProcessError = MockException
+
+        def mock_raise(*args, **kwargs):
+            raise MockException('foo!')
+
+        mock_sub.check_call.side_effect = mock_raise
+        self.bigtop.update_bigtop_repo()
+
+    @mock.patch('charms.layer.apache_bigtop_base.get_package_version')
+    @mock.patch('charms.layer.apache_bigtop_base.hookenv')
+    @mock.patch('charms.layer.apache_bigtop_base.subprocess.Popen')
+    @mock.patch('charms.layer.apache_bigtop_base.lsb_release')
+    def test_check_bigtop_repo_package(self, mock_lsb_release, mock_sub,
+                                       mock_hookenv, mock_pkg_ver):
+        '''
+        Verify bigtop repo package queries.
+
+        '''
+        # non-ubuntu should raise an error
+        mock_lsb_release.return_value = {'DISTRIB_CODENAME': 'foo',
+                                         'DISTRIB_ID': 'centos',
+                                         'DISTRIB_RELEASE': '7'}
+        self.assertRaises(BigtopError,
+                          self.bigtop.check_bigtop_repo_package,
+                          'foo')
+
+        # reset with ubuntu
+        mock_lsb_release.return_value = {'DISTRIB_CODENAME': 'xenial',
+                                         'DISTRIB_ID': 'ubuntu',
+                                         'DISTRIB_RELEASE': '16.04'}
+
+        madison_proc = mock.Mock()
+        grep_proc = mock.Mock()
+
+        # simulate a missing repo pkg
+        grep_attrs = {'communicate.return_value': (b'', 'stderr')}
+        grep_proc.configure_mock(**grep_attrs)
+
+        # test a missing repo pkg (message should be logged)
+        mock_sub.return_value = madison_proc
+        mock_sub.return_value = grep_proc
+        mock_pkg_ver.return_value = ''
+        self.assertEqual(None, self.bigtop.check_bigtop_repo_package('foo'))
+        mock_hookenv.log.assert_called_once()
+        mock_hookenv.reset_mock()
+
+        # reset our grep args to simulate the repo pkg being found
+        grep_attrs = {'communicate.return_value': (b'pkg|1|repo', 'stderr')}
+        grep_proc.configure_mock(**grep_attrs)
+
+        # test a missing installed pkg (no log message)
+        mock_sub.return_value = madison_proc
+        mock_sub.return_value = grep_proc
+        mock_pkg_ver.return_value = ''
+        self.assertEqual('1', self.bigtop.check_bigtop_repo_package('foo'))
+        mock_hookenv.log.assert_not_called()
+        mock_hookenv.reset_mock()
+
+        # test repo and installed pkg versions are the same (no log message)
+        mock_sub.return_value = madison_proc
+        mock_sub.return_value = grep_proc
+        mock_pkg_ver.return_value = '1'
+        self.assertEqual(None, self.bigtop.check_bigtop_repo_package('foo'))
+        mock_hookenv.log.assert_not_called()
+        mock_hookenv.reset_mock()
+
+        # test repo pkg is newer than installed pkg (no log message)
+        mock_sub.return_value = madison_proc
+        mock_sub.return_value = grep_proc
+        mock_pkg_ver.return_value = '0'
+        self.assertEqual('1', self.bigtop.check_bigtop_repo_package('foo'))
+        mock_hookenv.log.assert_not_called()
+        mock_hookenv.reset_mock()
 
     @mock.patch('charms.layer.apache_bigtop_base.socket')
     @mock.patch('charms.layer.apache_bigtop_base.subprocess')
@@ -303,16 +500,17 @@ class TestBigtopUnit(Harness):
         self.assertTrue(is_state('apache-bigtop-base.puppet_queued'))
 
     @mock.patch('charms.layer.apache_bigtop_base.Bigtop.trigger_puppet')
+    @mock.patch('charms.layer.apache_bigtop_base.hookenv')
     @mock.patch('charms.layer.apache_bigtop_base.Bigtop.bigtop_version',
                 new_callable=mock.PropertyMock)
-    def test_handle_queued_puppet(self, mock_ver, mock_trigger):
+    def test_handle_queued_puppet(self, mock_ver, mock_hookenv, mock_trigger):
         '''
         Verify that we attempt to call puppet when it has been queued, and
         then clear the queued state.
 
         '''
         set_state('apache-bigtop-base.puppet_queued')
-        mock_ver.return_value = 'master'
+        mock_ver.return_value = '1.2.0'
         Bigtop._handle_queued_puppet()
         self.assertTrue(mock_trigger.called)
         self.assertFalse(is_state('apache-bigtop-base.puppet_queued'))
@@ -412,6 +610,44 @@ class TestBigtopUnit(Harness):
             self.bigtop.run_smoke_tests(smoke_components=['foo', 'bar']),
             "test output"
         )
+
+    @mock.patch('charms.layer.apache_bigtop_base.Bigtop.update_bigtop_repo')
+    @mock.patch('charms.layer.apache_bigtop_base.Bigtop.render_hiera_yaml')
+    @mock.patch('charms.layer.apache_bigtop_base.Path')
+    @mock.patch('charms.layer.apache_bigtop_base.Bigtop.pin_bigtop_packages')
+    @mock.patch('charms.layer.apache_bigtop_base.Bigtop.trigger_puppet')
+    @mock.patch('charms.layer.apache_bigtop_base.subprocess')
+    def test_reinstall_repo_packages(self, mock_sub, mock_trigger, mock_pin,
+                                     mock_path, mock_hiera, mock_update):
+        '''
+        Verify that we attempt to trigger puppet during a reinstall, and handle
+        exceptions as expected.
+
+        '''
+        class MockException(Exception):
+            pass
+        MockException.output = "test output"
+        mock_sub.CalledProcessError = MockException
+
+        def mock_raise(*args, **kwargs):
+            raise MockException('foo!')
+
+        # Should return error message if apt-get remove raised an Exception.
+        mock_sub.check_call.side_effect = mock_raise
+        self.assertEqual(
+            self.bigtop.reinstall_repo_packages(remove_pkgs='foo bar-*'),
+            "test output"
+        )
+
+        # Should call pin twice if trigger puppet fails (once to raise prio,
+        # once again to drop it back down)
+        mock_trigger.side_effect = mock_raise
+        self.assertEqual(self.bigtop.reinstall_repo_packages(), 'failed')
+        self.assertEqual(mock_pin.call_count, 2)
+
+        # Should return 'success' if all went well.
+        mock_trigger.side_effect = None
+        self.assertEqual(self.bigtop.reinstall_repo_packages(), 'success')
 
     def test_get_ip_for_interface(self):
         '''

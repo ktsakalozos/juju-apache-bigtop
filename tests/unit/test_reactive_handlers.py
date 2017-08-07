@@ -7,7 +7,12 @@ from charms.reactive.helpers import data_changed
 
 from bigtop_harness import Harness
 
-from apache_bigtop_base import missing_java, fetch_bigtop, set_java_home
+from apache_bigtop_base import (
+    missing_java,
+    fetch_bigtop,
+    change_bigtop_version,
+    set_java_home
+)
 
 
 class TestMissingJava(Harness):
@@ -90,6 +95,59 @@ class TestFetchBigtop(Harness):
 
         self.assertEqual(self.last_status[0], 'waiting')
         self.assertTrue('checksum error' in self.last_status[1])
+
+
+class TestChangeBigtopVersion(Harness):
+    '''
+    Test the change_bigtop_version reactive handler.
+
+    '''
+    def setUp(self):
+        super(TestChangeBigtopVersion, self).setUp()
+        self.bigtop_patcher = mock.patch('apache_bigtop_base.Bigtop')
+        mock_bigtop_class = self.bigtop_patcher.start()
+        self.mock_bigtop = mock.Mock()
+        mock_bigtop_class.return_value = self.mock_bigtop
+
+    def tearDown(self):
+        super(TestChangeBigtopVersion, self).tearDown()
+        self.bigtop_patcher.stop()
+
+    @mock.patch('apache_bigtop_base.hookenv.config')
+    def test_bigtop_version_unchanged(self, mock_config):
+        '''
+        Verify the changed state is not set if config has not changed.
+
+        '''
+        class Config(dict):
+            def __init__(self, *args, **kw):
+                super(Config, self).__init__(*args, **kw)
+
+            def previous(self, key):
+                return '1.1.0'
+
+        mock_config.return_value = Config({'bigtop_version': '1.1.0'})
+        remove_state('bigtop.version.changed')
+        change_bigtop_version()
+        self.assertFalse(is_state('bigtop.version.changed'))
+
+    @mock.patch('apache_bigtop_base.hookenv.config')
+    def test_bigtop_version_changed(self, mock_config):
+        '''
+        Verify the changed state is set when config has changed.
+
+        '''
+        class Config(dict):
+            def __init__(self, *args, **kw):
+                super(Config, self).__init__(*args, **kw)
+
+            def previous(self, key):
+                return '1.1.0'
+
+        mock_config.return_value = Config({'bigtop_version': '1.2.0'})
+        remove_state('bigtop.version.changed')
+        change_bigtop_version()
+        self.assertTrue(is_state('bigtop.version.changed'))
 
 
 class TestJavaHome(Harness):
