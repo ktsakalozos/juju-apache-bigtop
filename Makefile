@@ -12,6 +12,7 @@ clean:
 
 .PHONY: apt_prereqs
 apt_prereqs:
+	@which charm >/dev/null || sudo snap install charm
 	@# Need tox, but don't install the apt version unless we have to (don't want to conflict with pip)
 	@which tox >/dev/null || (sudo apt-get install -y python-pip && sudo pip install tox)
 
