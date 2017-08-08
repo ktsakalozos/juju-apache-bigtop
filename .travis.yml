@@ -1,11 +1,13 @@
-dist: trusty
-sudo: required
 language: python
+sudo: true
+dist: trusty
 python:
  - '3.5'
 
 install:
- - pip install tox
-
+  - make sysdeps
+env:
+  global:
+    - PATH=/snap/bin:$PATH
 script:
- - make lint unit_test
+ - make all
