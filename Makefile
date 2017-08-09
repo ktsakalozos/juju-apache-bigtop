@@ -12,7 +12,7 @@ clean:
 
 .PHONY: sysdeps
 sysdeps:
-	@which charm >/dev/null || (sudo apt-get install -y snapd && sudo snap install charm --classic)
+	@which charm >/dev/null || (sudo apt-get install -y snapd && sudo snap install charm --candidate)
 	@which tox >/dev/null || (sudo apt-get install -y python-pip && sudo pip install tox)
 
 .PHONY: lint
