@@ -1,0 +1,3 @@
+amulet
+flake8
+pytest

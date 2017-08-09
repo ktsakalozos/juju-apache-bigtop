@@ -1,4 +1,7 @@
+charms.reactive
 flake8
-nose
+jujubigdata>=7.0.0,<8.0.0
 mock
-charms.reactive    
+netifaces==0.10.4
+nose
+path.py
