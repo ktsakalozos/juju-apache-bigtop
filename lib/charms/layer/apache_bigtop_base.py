@@ -323,8 +323,6 @@ class Bigtop(object):
         """
         distro = lsb_release()['DISTRIB_ID'].lower()
         if distro == 'ubuntu':
-            # NB: inner quotes are required so add-apt-repo sees the whole
-            # string as the repo.
             repo = "deb {} bigtop contrib".format(self.bigtop_apt)
             flags = '-yur' if remove else '-yu'
             cmd = ['add-apt-repository', flags, repo]
