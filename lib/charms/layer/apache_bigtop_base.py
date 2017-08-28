@@ -166,10 +166,16 @@ class Bigtop(object):
             )
         elif bigtop_version == '1.2.1' or bigtop_version == 'master':
             if dist_name == 'ubuntu' and dist_series == 'xenial':
-                bigtop_repo_url = ('https://ci.bigtop.apache.org/'
-                                   'job/Bigtop-trunk-repos/'
-                                   'OS=ubuntu-16.04,label=docker-slave/'
-                                   'ws/output/apt')
+                if repo_arch == "x86_64":
+                    bigtop_repo_url = ('https://ci.bigtop.apache.org/'
+                                       'job/Bigtop-trunk-repos/'
+                                       'OS=ubuntu-16.04,label=docker-slave/'
+                                       'ws/output/apt')
+                else:
+                    bigtop_repo_url = ('https://ci.bigtop.apache.org/'
+                                       'job/Bigtop-trunk-repos/'
+                                       'OS=ubuntu-16.04-{},label=docker-slave/'
+                                       'ws/output/apt'.format(repo_arch))
             else:
                 raise BigtopError(
                     u"Charms only support Bigtop 'master' on Ubuntu/Xenial.")
@@ -317,8 +323,6 @@ class Bigtop(object):
         """
         distro = lsb_release()['DISTRIB_ID'].lower()
         if distro == 'ubuntu':
-            # NB: inner quotes are required so add-apt-repo sees the whole
-            # string as the repo.
             repo = "deb {} bigtop contrib".format(self.bigtop_apt)
             flags = '-yur' if remove else '-yu'
             cmd = ['add-apt-repository', flags, repo]
