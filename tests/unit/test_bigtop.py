@@ -140,12 +140,19 @@ class TestBigtopUnit(Harness):
                          ('http://bigtop-repos.s3.amazonaws.com/releases/'
                           '1.2.0/ubuntu/16.04/foo'))
 
-        # master on xenial
+        # master on xenial/intel
+        mock_ver.return_value = 'master'
+        mock_utils.cpu_arch.return_value = 'x86_64'
+        self.assertEqual(self.bigtop.get_repo_url('master'),
+                         ('https://ci.bigtop.apache.org/job/Bigtop-trunk-repos/'
+                          'OS=ubuntu-16.04,label=docker-slave/ws/output/apt'))
+
+        # master on xenial/non-intel
         mock_ver.return_value = 'master'
         mock_utils.cpu_arch.return_value = 'foo'
         self.assertEqual(self.bigtop.get_repo_url('master'),
                          ('https://ci.bigtop.apache.org/job/Bigtop-trunk-repos/'
-                          'OS=ubuntu-16.04,label=docker-slave/ws/output/apt'))
+                          'OS=ubuntu-16.04-foo,label=docker-slave/ws/output/apt'))
 
         # test bad version on xenial should throw an exception
         self.assertRaises(
