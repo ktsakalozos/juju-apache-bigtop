@@ -135,7 +135,7 @@ class Bigtop(object):
                 u"Charms currently only support Bigtop on Ubuntu.")
 
         if bigtop_version == '1.1.0':
-            repo_url = ('http://bigtop-repos.s3.amazonaws.com/releases/'
+            repo_url = ('http://repos.bigtop.apache.org/releases/'
                         '{version}/{dist}/{series}/{arch}')
             if dist_name == 'ubuntu':
                 # NB: For 1.1.0, x86 must install from the trusty repo;
@@ -154,8 +154,8 @@ class Bigtop(object):
                 series=dist_series.lower(),
                 arch=repo_arch
             )
-        elif bigtop_version == '1.2.0':
-            repo_url = ('http://bigtop-repos.s3.amazonaws.com/releases/'
+        elif bigtop_version == '1.2.0' or bigtop_version == '1.2.1':
+            repo_url = ('http://repos.bigtop.apache.org/releases/'
                         '{version}/{dist}/{release}/{arch}')
             # Substitute params.
             bigtop_repo_url = repo_url.format(
@@ -164,7 +164,7 @@ class Bigtop(object):
                 release=dist_release.lower(),
                 arch=repo_arch
             )
-        elif bigtop_version == '1.2.1' or bigtop_version == 'master':
+        elif bigtop_version == 'master':
             if dist_name == 'ubuntu' and dist_series == 'xenial':
                 if repo_arch == "x86_64":
                     bigtop_repo_url = ('https://ci.bigtop.apache.org/'

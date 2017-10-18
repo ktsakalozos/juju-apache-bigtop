@@ -115,13 +115,13 @@ class TestBigtopUnit(Harness):
                                          'DISTRIB_ID': 'ubuntu',
                                          'DISTRIB_RELEASE': '14.04'}
         self.assertEqual(self.bigtop.get_repo_url('1.1.0'),
-                         ('http://bigtop-repos.s3.amazonaws.com/releases/'
+                         ('http://repos.bigtop.apache.org/releases/'
                           '1.1.0/ubuntu/trusty/foo'))
 
-        # 1.1.0 on trusty/power
+        # 1.1.0 on trusty/power (should return vivid url)
         mock_utils.cpu_arch.return_value = 'ppc64le'
         self.assertEqual(self.bigtop.get_repo_url('1.1.0'),
-                         ('http://bigtop-repos.s3.amazonaws.com/releases/'
+                         ('http://repos.bigtop.apache.org/releases/'
                           '1.1.0/ubuntu/vivid/ppc64el'))
 
         # master should fail on trusty
@@ -137,8 +137,15 @@ class TestBigtopUnit(Harness):
                                          'DISTRIB_ID': 'ubuntu',
                                          'DISTRIB_RELEASE': '16.04'}
         self.assertEqual(self.bigtop.get_repo_url('1.2.0'),
-                         ('http://bigtop-repos.s3.amazonaws.com/releases/'
+                         ('http://repos.bigtop.apache.org/releases/'
                           '1.2.0/ubuntu/16.04/foo'))
+
+        # 1.2.1 on xenial
+        mock_ver.return_value = '1.2.1'
+        mock_utils.cpu_arch.return_value = 'foo'
+        self.assertEqual(self.bigtop.get_repo_url('1.2.1'),
+                         ('http://repos.bigtop.apache.org/releases/'
+                          '1.2.1/ubuntu/16.04/foo'))
 
         # master on xenial/intel
         mock_ver.return_value = 'master'
