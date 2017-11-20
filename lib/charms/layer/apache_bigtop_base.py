@@ -154,12 +154,28 @@ class Bigtop(object):
                 series=dist_series.lower(),
                 arch=repo_arch
             )
-        elif bigtop_version == '1.2.0' or bigtop_version == '1.2.1':
+        elif bigtop_version == '1.2.0':
             repo_url = ('http://repos.bigtop.apache.org/releases/'
                         '{version}/{dist}/{release}/{arch}')
             # Substitute params.
             bigtop_repo_url = repo_url.format(
                 version=self.bigtop_version,
+                dist=dist_name.lower(),
+                release=dist_release.lower(),
+                arch=repo_arch
+            )
+        elif bigtop_version == '1.2.1':
+            repo_url = ('http://repos.bigtop.apache.org/releases/'
+                        '{version}/{dist}/{release}/{arch}')
+            # NB: There are no 1.2.1 repos for non-Intel arches yet. Force
+            # non-Intel to the 1.2.0 repos.
+            if repo_arch != "x86_64":
+                repo_version = "1.2.0"
+            else:
+                repo_version = "1.2.1"
+            # Substitute params.
+            bigtop_repo_url = repo_url.format(
+                version=repo_version,
                 dist=dist_name.lower(),
                 release=dist_release.lower(),
                 arch=repo_arch

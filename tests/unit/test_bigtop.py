@@ -140,12 +140,19 @@ class TestBigtopUnit(Harness):
                          ('http://repos.bigtop.apache.org/releases/'
                           '1.2.0/ubuntu/16.04/foo'))
 
-        # 1.2.1 on xenial
+        # 1.2.1 on xenial/intel
+        mock_ver.return_value = '1.2.1'
+        mock_utils.cpu_arch.return_value = 'x86_64'
+        self.assertEqual(self.bigtop.get_repo_url('1.2.1'),
+                         ('http://repos.bigtop.apache.org/releases/'
+                          '1.2.1/ubuntu/16.04/x86_64'))
+
+        # 1.2.1 on xenial/non-intel
         mock_ver.return_value = '1.2.1'
         mock_utils.cpu_arch.return_value = 'foo'
         self.assertEqual(self.bigtop.get_repo_url('1.2.1'),
                          ('http://repos.bigtop.apache.org/releases/'
-                          '1.2.1/ubuntu/16.04/foo'))
+                          '1.2.0/ubuntu/16.04/foo'))
 
         # master on xenial/intel
         mock_ver.return_value = 'master'
