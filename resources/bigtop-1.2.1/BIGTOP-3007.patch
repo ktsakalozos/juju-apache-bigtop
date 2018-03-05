@@ -1,0 +1,269 @@
+From 97d2e578b6a83ead40a0467f4793583a14bad89e Mon Sep 17 00:00:00 2001
+From: jamesbeedy <jamesbeedy@gmail.com>
+Date: Tue, 27 Feb 2018 09:19:06 -0800
+Subject: [PATCH 1/1] BIGTOP-3007: hive pkg and charm opts for zookeeper
+
+Closes #344
+
+Signed-off-by: Kevin W Monroe <kevin.monroe@canonical.com>
+---
+ .../puppet/modules/hadoop_hive/manifests/init.pp   |  2 +
+ .../modules/hadoop_hive/templates/hive-site.xml    | 14 +++++
+ .../modules/ignite_hadoop/templates/hive-site.xml  |  2 +-
+ .../src/charm/hive/layer-hive/layer.yaml           |  1 +
+ .../layer-hive/lib/charms/layer/bigtop_hive.py     | 63 ++++++++++++++++------
+ .../src/charm/hive/layer-hive/metadata.yaml        |  2 +
+ .../src/charm/hive/layer-hive/reactive/hive.py     | 12 ++++-
+ 7 files changed, 79 insertions(+), 17 deletions(-)
+
+diff --git a/bigtop-deploy/puppet/modules/hadoop_hive/manifests/init.pp b/bigtop-deploy/puppet/modules/hadoop_hive/manifests/init.pp
+index d03427cc..35c06179 100644
+--- a/bigtop-deploy/puppet/modules/hadoop_hive/manifests/init.pp
++++ b/bigtop-deploy/puppet/modules/hadoop_hive/manifests/init.pp
+@@ -47,6 +47,8 @@ class hadoop_hive {
+ 
+   class common_config ($hbase_master = "",
+                        $hbase_zookeeper_quorum = "",
++                       $hive_zookeeper_quorum = "",
++                       $hive_support_concurrency = false,
+                        $kerberos_realm = "",
+                        $metastore_uris = "",
+                        $server2_thrift_port = "10000",
+diff --git a/bigtop-deploy/puppet/modules/hadoop_hive/templates/hive-site.xml b/bigtop-deploy/puppet/modules/hadoop_hive/templates/hive-site.xml
+index 6e4b4b67..ff1fb927 100644
+--- a/bigtop-deploy/puppet/modules/hadoop_hive/templates/hive-site.xml
++++ b/bigtop-deploy/puppet/modules/hadoop_hive/templates/hive-site.xml
+@@ -42,6 +42,20 @@
+ </property>
+ <% end %>
+ 
++<% if @hive_zookeeper_quorum != "" %>
++<property>
++  <name>hive.zookeeper.quorum</name>
++  <value><%= @hive_zookeeper_quorum %></value>
++  <description>Zookeeper quorum used by Hive's Table Lock Manager</description>
++</property>
++<% end %>
++
++<property>
++  <name>hive.support.concurrency</name>
++  <value><%= @hive_support_concurrency %></value>
++  <description>Enable Hive's Table Lock Manager Service</description>
++</property>
++
+ <property>
+   <name>hive.execution.engine</name>
+   <value><%= @hive_execution_engine %></value>
+diff --git a/bigtop-deploy/puppet/modules/ignite_hadoop/templates/hive-site.xml b/bigtop-deploy/puppet/modules/ignite_hadoop/templates/hive-site.xml
+index 1f588988..753c5013 100644
+--- a/bigtop-deploy/puppet/modules/ignite_hadoop/templates/hive-site.xml
++++ b/bigtop-deploy/puppet/modules/ignite_hadoop/templates/hive-site.xml
+@@ -30,4 +30,4 @@
+         <name>hive.rpc.query.plan</name>
+         <value>true</value>
+     </property>
+-</configuration>
+\ No newline at end of file
++</configuration>
+diff --git a/bigtop-packages/src/charm/hive/layer-hive/layer.yaml b/bigtop-packages/src/charm/hive/layer-hive/layer.yaml
+index 5be7ac9f..0a5ba238 100644
+--- a/bigtop-packages/src/charm/hive/layer-hive/layer.yaml
++++ b/bigtop-packages/src/charm/hive/layer-hive/layer.yaml
+@@ -5,6 +5,7 @@ includes:
+   - 'interface:hbase'
+   - 'interface:hive'
+   - 'interface:mysql'
++  - 'interface:zookeeper'
+ options:
+   basic:
+     packages:
+diff --git a/bigtop-packages/src/charm/hive/layer-hive/lib/charms/layer/bigtop_hive.py b/bigtop-packages/src/charm/hive/layer-hive/lib/charms/layer/bigtop_hive.py
+index c7d9cc6f..1aa0fdc9 100755
+--- a/bigtop-packages/src/charm/hive/layer-hive/lib/charms/layer/bigtop_hive.py
++++ b/bigtop-packages/src/charm/hive/layer-hive/lib/charms/layer/bigtop_hive.py
+@@ -25,7 +25,7 @@ class Hive(object):
+         self.dist_config = utils.DistConfig(
+             data=layer.options('apache-bigtop-base'))
+ 
+-    def install(self, hbase=None):
++    def install(self, hbase=None, zk_units=None):
+         '''
+         Trigger the Bigtop puppet recipe that handles the Hive service.
+         '''
+@@ -36,23 +36,37 @@ class Hive(object):
+         # Prep config
+         roles = ['hive-client', 'hive-metastore', 'hive-server2']
+         metastore = "thrift://{}:9083".format(hookenv.unit_private_ip())
++
+         if hbase:
+             roles.append('hive-hbase')
+             hb_connect = "{}:{}".format(hbase['host'], hbase['master_port'])
+-            zk_connect = hbase['zk_connect']
++            zk_hbase_connect = hbase['zk_connect']
+         else:
+             hb_connect = ""
+-            zk_connect = ""
++            zk_hbase_connect = ""
++
++        if zk_units:
++            hive_support_concurrency = True
++            zk_hive_connect = self.get_zk_connect(zk_units)
++        else:
++            hive_support_concurrency = False
++            zk_hive_connect = ""
+ 
+         override = {
+             'hadoop_hive::common_config::hbase_master': hb_connect,
+-            'hadoop_hive::common_config::hbase_zookeeper_quorum': zk_connect,
++            'hadoop_hive::common_config::hbase_zookeeper_quorum':
++                zk_hbase_connect,
++            'hadoop_hive::common_config::hive_zookeeper_quorum':
++                zk_hive_connect,
++            'hadoop_hive::common_config::hive_support_concurrency':
++                hive_support_concurrency,
+             'hadoop_hive::common_config::metastore_uris': metastore,
+             'hadoop_hive::common_config::server2_thrift_port':
+                 self.dist_config.port('hive-thrift'),
+             'hadoop_hive::common_config::server2_thrift_http_port':
+                 self.dist_config.port('hive-thrift-web'),
+         }
++
+         bigtop = Bigtop()
+         bigtop.render_site_yaml(roles=roles, overrides=override)
+         bigtop.trigger_puppet()
+@@ -60,7 +74,16 @@ class Hive(object):
+         # Bigtop doesn't create a hive-env.sh, but we need it for heap config
+         hive_env = self.dist_config.path('hive_conf') / 'hive-env.sh'
+         if not hive_env.exists():
+-            (self.dist_config.path('hive_conf') / 'hive-env.sh.template').copy(hive_env)
++            (self.dist_config.path('hive_conf') / 'hive-env.sh.template').copy(
++                hive_env)
++
++    def get_zk_connect(self, zk_units):
++        zks = []
++        for unit in zk_units:
++            ip = utils.resolve_private_address(unit['host'])
++            zks.append(ip)
++        zks.sort()
++        return ",".join(zks)
+ 
+     def configure_hive(self):
+         '''
+@@ -69,35 +92,44 @@ class Hive(object):
+         config = hookenv.config()
+         hive_env = self.dist_config.path('hive_conf') / 'hive-env.sh'
+         utils.re_edit_in_place(hive_env, {
+-            r'.*export HADOOP_HEAPSIZE *=.*': 'export HADOOP_HEAPSIZE=%s' % config['heap'],
++            r'.*export HADOOP_HEAPSIZE *=.*':
++                'export HADOOP_HEAPSIZE=%s' % config['heap'],
+         })
+ 
+     def configure_remote_db(self, mysql):
+         hive_site = self.dist_config.path('hive_conf') / 'hive-site.xml'
+-        jdbc_url = "jdbc:mysql://{}:{}/{}?createDatabaseIfNotExist=true".format(
+-            mysql.host(), mysql.port(), mysql.database()
+-        )
++        jdbc_url = \
++            "jdbc:mysql://{}:{}/{}?createDatabaseIfNotExist=true".format(
++                mysql.host(), mysql.port(), mysql.database()
++            )
+         with utils.xmlpropmap_edit_in_place(hive_site) as props:
+             props['javax.jdo.option.ConnectionURL'] = jdbc_url
+             props['javax.jdo.option.ConnectionUserName'] = mysql.user()
+             props['javax.jdo.option.ConnectionPassword'] = mysql.password()
+-            props['javax.jdo.option.ConnectionDriverName'] = "com.mysql.jdbc.Driver"
++            props['javax.jdo.option.ConnectionDriverName'] = \
++                "com.mysql.jdbc.Driver"
+ 
+         hive_env = self.dist_config.path('hive_conf') / 'hive-env.sh'
+         utils.re_edit_in_place(hive_env, {
+-            r'.*export HIVE_AUX_JARS_PATH *=.*': 'export HIVE_AUX_JARS_PATH=/usr/share/java/mysql-connector-java.jar',
++            r'.*export HIVE_AUX_JARS_PATH *=.*':
++            ('export HIVE_AUX_JARS_PATH='
++             '/usr/share/java/mysql-connector-java.jar'),
+         })
+ 
+         # Now that we have db connection info, init our schema (only once)
+         remote_db = hookenv.remote_service_name()
+         if not unitdata.kv().get('hive.schema.initialized.%s' % remote_db):
+-            tool_path = "{}/bin/schematool".format(self.dist_config.path('hive'))
+-            utils.run_as('ubuntu', tool_path, '-initSchema', '-dbType', 'mysql')
++            tool_path = "{}/bin/schematool".format(
++                self.dist_config.path('hive'))
++            utils.run_as(
++                'ubuntu', tool_path, '-initSchema', '-dbType', 'mysql')
+             unitdata.kv().set('hive.schema.initialized.%s' % remote_db, True)
+             unitdata.kv().flush(True)
+ 
+     def configure_local_db(self):
+-        local_url = 'jdbc:derby:;databaseName=/var/lib/hive/metastore/metastore_db;create=true'
++        local_url = \
++            ('jdbc:derby:;databaseName='
++             '/var/lib/hive/metastore/metastore_db;create=true')
+         local_driver = 'org.apache.derby.jdbc.EmbeddedDriver'
+         hive_site = self.dist_config.path('hive_conf') / 'hive-site.xml'
+         with utils.xmlpropmap_edit_in_place(hive_site) as props:
+@@ -108,7 +140,8 @@ class Hive(object):
+ 
+         hive_env = self.dist_config.path('hive_conf') / 'hive-env.sh'
+         utils.re_edit_in_place(hive_env, {
+-            r'.*export HIVE_AUX_JARS_PATH *=.*': '# export HIVE_AUX_JARS_PATH=',
++            r'.*export HIVE_AUX_JARS_PATH *=.*':
++            '# export HIVE_AUX_JARS_PATH=',
+         })
+ 
+     def restart(self):
+diff --git a/bigtop-packages/src/charm/hive/layer-hive/metadata.yaml b/bigtop-packages/src/charm/hive/layer-hive/metadata.yaml
+index 998dd72c..0c814c17 100644
+--- a/bigtop-packages/src/charm/hive/layer-hive/metadata.yaml
++++ b/bigtop-packages/src/charm/hive/layer-hive/metadata.yaml
+@@ -17,3 +17,5 @@ requires:
+     interface: mysql
+   hbase:
+     interface: hbase
++  zookeeper:
++    interface: zookeeper
+diff --git a/bigtop-packages/src/charm/hive/layer-hive/reactive/hive.py b/bigtop-packages/src/charm/hive/layer-hive/reactive/hive.py
+index 0deebd47..bf4ce2b8 100644
+--- a/bigtop-packages/src/charm/hive/layer-hive/reactive/hive.py
++++ b/bigtop-packages/src/charm/hive/layer-hive/reactive/hive.py
+@@ -36,6 +36,7 @@ def report_status():
+     database_joined = is_state('database.connected')
+     database_ready = is_state('database.available')
+     hive_installed = is_state('hive.installed')
++
+     if not hadoop_joined:
+         hookenv.status_set('blocked',
+                            'waiting for relation to hadoop plugin')
+@@ -78,9 +79,17 @@ def install_hive(hadoop):
+     else:
+         hbserver = None
+ 
++    # Get zookeeper connection dict if it's available
++    if is_state('zookeeper.ready'):
++        zk = RelationBase.from_state('zookeeper.ready')
++        zks = zk.zookeepers()
++    else:
++        zks = None
++
+     # Use this to determine if we need to reinstall
+     deployment_matrix = {
+         'hbase': hbserver,
++        'zookeepers': zks
+     }
+ 
+     # Handle nuances when installing versus re-installing
+@@ -99,8 +108,9 @@ def install_hive(hadoop):
+ 
+     hookenv.status_set('maintenance', '{} hive'.format(prefix))
+     hookenv.log("{} hive with: {}".format(prefix, deployment_matrix))
++
+     hive = Hive()
+-    hive.install(hbase=hbserver)
++    hive.install(hbase=hbserver, zk_units=zks)
+     hive.restart()
+     hive.open_ports()
+     set_state('hive.installed')
+-- 
+2.14.3 (Apple Git-98)
+
