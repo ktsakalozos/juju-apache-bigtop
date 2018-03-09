@@ -87,13 +87,13 @@ class TestBigtopUnit(Harness):
         self.assertTrue(mock_apply.called)
         self.assertTrue(mock_update.called)
 
+    @mock.patch('charms.layer.apache_bigtop_base.hookenv')
     @mock.patch('charms.layer.apache_bigtop_base.utils')
-    @mock.patch('charms.layer.apache_bigtop_base.layer.options')
     @mock.patch('charms.layer.apache_bigtop_base.lsb_release')
     @mock.patch('charms.layer.apache_bigtop_base.Bigtop.bigtop_version',
                 new_callable=mock.PropertyMock)
     def test_get_repo_url(self, mock_ver, mock_lsb_release,
-                          mock_options, mock_utils):
+                          mock_utils, mock_hookenv):
         '''
         Verify that we setup an appropriate repository.
 
@@ -101,9 +101,7 @@ class TestBigtopUnit(Harness):
         mock_ver.return_value = '1.1.0'
 
         # non-ubuntu should throw an exception
-        mock_lsb_release.return_value = {'DISTRIB_CODENAME': 'foo',
-                                         'DISTRIB_ID': 'centos',
-                                         'DISTRIB_RELEASE': '7'}
+        mock_lsb_release.return_value = {'DISTRIB_ID': 'centos'}
         self.assertRaises(
             BigtopError,
             self.bigtop.get_repo_url,
@@ -111,36 +109,27 @@ class TestBigtopUnit(Harness):
 
         # 1.1.0 on trusty/non-power
         mock_utils.cpu_arch.return_value = 'foo'
-        mock_lsb_release.return_value = {'DISTRIB_CODENAME': 'trusty',
-                                         'DISTRIB_ID': 'ubuntu',
-                                         'DISTRIB_RELEASE': '14.04'}
+        mock_lsb_release.return_value = {'DISTRIB_ID': 'ubuntu'}
         self.assertEqual(self.bigtop.get_repo_url('1.1.0'),
-                         ('http://repos.bigtop.apache.org/releases/'
+                         ('http://bigtop-repos.s3.amazonaws.com/releases/'
                           '1.1.0/ubuntu/trusty/foo'))
 
         # 1.1.0 on trusty/power (should return vivid url)
         mock_utils.cpu_arch.return_value = 'ppc64le'
         self.assertEqual(self.bigtop.get_repo_url('1.1.0'),
-                         ('http://repos.bigtop.apache.org/releases/'
+                         ('http://bigtop-repos.s3.amazonaws.com/releases/'
                           '1.1.0/ubuntu/vivid/ppc64el'))
-
-        # master should fail on trusty
-        self.assertRaises(
-            BigtopError,
-            self.bigtop.get_repo_url,
-            'master')
 
         # 1.2.0 on xenial
         mock_ver.return_value = '1.2.0'
         mock_utils.cpu_arch.return_value = 'foo'
-        mock_lsb_release.return_value = {'DISTRIB_CODENAME': 'xenial',
-                                         'DISTRIB_ID': 'ubuntu',
-                                         'DISTRIB_RELEASE': '16.04'}
+        mock_lsb_release.return_value = {'DISTRIB_ID': 'ubuntu'}
         self.assertEqual(self.bigtop.get_repo_url('1.2.0'),
-                         ('http://repos.bigtop.apache.org/releases/'
+                         ('http://bigtop-repos.s3.amazonaws.com/releases/'
                           '1.2.0/ubuntu/16.04/foo'))
 
         # 1.2.1 on xenial/intel
+        mock_hookenv.return_value = {'name': 'foo'}
         mock_ver.return_value = '1.2.1'
         mock_utils.cpu_arch.return_value = 'x86_64'
         self.assertEqual(self.bigtop.get_repo_url('1.2.1'),
@@ -151,8 +140,8 @@ class TestBigtopUnit(Harness):
         mock_ver.return_value = '1.2.1'
         mock_utils.cpu_arch.return_value = 'foo'
         self.assertEqual(self.bigtop.get_repo_url('1.2.1'),
-                         ('http://repos.bigtop.apache.org/releases/'
-                          '1.2.0/ubuntu/16.04/foo'))
+                         ('https://ci.bigtop.apache.org/job/Bigtop-1.2.1/'
+                          'OS=ubuntu-16.04/ws/output/apt'))
 
         # master on xenial/intel
         mock_ver.return_value = 'master'
