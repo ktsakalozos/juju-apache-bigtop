@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/local/sbin/charm-env python
 
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
@@ -25,7 +25,6 @@
 # "failure", and set the action outcome/output as appropriate.
 ################################################################################
 import sys
-sys.path.append('lib')
 
 from charmhelpers.core import hookenv, unitdata
 from charms.layer.apache_bigtop_base import Bigtop
