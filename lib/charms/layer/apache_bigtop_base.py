@@ -124,10 +124,13 @@ class Bigtop(object):
         """
         bigtop_repo_url = None
         release_info = lsb_release()
-        dist_name = release_info['DISTRIB_ID'].lower()
-        dist_release = release_info['DISTRIB_RELEASE'].lower()
-        dist_series = release_info['DISTRIB_CODENAME'].lower()
         repo_arch = utils.cpu_arch().lower()
+
+        dist_name = release_info['DISTRIB_ID'].lower()
+        # NB: Set 16.04/xenial as defaults since that matches current bigtop
+        # repos. Installation on non-LTS will work with these values.
+        dist_release = "16.04"
+        dist_series = "xenial"
 
         # Fail fast if we're not on ubuntu
         if dist_name != 'ubuntu':
@@ -135,66 +138,63 @@ class Bigtop(object):
                 u"Charms currently only support Bigtop on Ubuntu.")
 
         if bigtop_version == '1.1.0':
-            repo_url = ('http://repos.bigtop.apache.org/releases/'
+            repo_url = ('http://bigtop-repos.s3.amazonaws.com/releases/'
                         '{version}/{dist}/{series}/{arch}')
-            if dist_name == 'ubuntu':
-                # NB: For 1.1.0, x86 must install from the trusty repo;
-                # ppc64le only works from vivid.
-                if repo_arch == "ppc64le":
-                    dist_series = "vivid"
-                    # 'le' and 'el' are swapped due to historical awfulness:
-                    #   https://lists.debian.org/debian-powerpc/2014/08/msg00042.html
-                    repo_arch = "ppc64el"
-                else:
-                    dist_series = "trusty"
+            # NB: For 1.1.0, x86 must install from the trusty repo;
+            # ppc64le only works from vivid.
+            if repo_arch == "ppc64le":
+                dist_series = "vivid"
+                # 'le' and 'el' are swapped due to historical awfulness:
+                #   https://lists.debian.org/debian-powerpc/2014/08/msg00042.html
+                repo_arch = "ppc64el"
+            else:
+                dist_series = "trusty"
             # Substitute params.
             bigtop_repo_url = repo_url.format(
                 version=self.bigtop_version,
-                dist=dist_name.lower(),
-                series=dist_series.lower(),
+                dist=dist_name,
+                series=dist_series,
                 arch=repo_arch
             )
         elif bigtop_version == '1.2.0':
-            repo_url = ('http://repos.bigtop.apache.org/releases/'
+            repo_url = ('http://bigtop-repos.s3.amazonaws.com/releases/'
                         '{version}/{dist}/{release}/{arch}')
             # Substitute params.
             bigtop_repo_url = repo_url.format(
                 version=self.bigtop_version,
-                dist=dist_name.lower(),
-                release=dist_release.lower(),
+                dist=dist_name,
+                release=dist_release,
                 arch=repo_arch
             )
         elif bigtop_version == '1.2.1':
-            repo_url = ('http://repos.bigtop.apache.org/releases/'
-                        '{version}/{dist}/{release}/{arch}')
-            # NB: There are no 1.2.1 repos for non-Intel arches yet. Force
-            # non-Intel to the 1.2.0 repos.
-            if repo_arch != "x86_64":
-                repo_version = "1.2.0"
+            # NB: Kafka is no longer served from official repos, nor are there
+            # non-x86 repos available for 1.2.1. Handle these cases by using
+            # the bigtop CI repository.
+            if hookenv.metadata()['name'] == 'kafka' or repo_arch != "x86_64":
+                bigtop_repo_url = ('https://ci.bigtop.apache.org/'
+                                   'job/Bigtop-1.2.1/'
+                                   'OS=ubuntu-16.04/ws/output/apt')
             else:
-                repo_version = "1.2.1"
-            # Substitute params.
-            bigtop_repo_url = repo_url.format(
-                version=repo_version,
-                dist=dist_name.lower(),
-                release=dist_release.lower(),
-                arch=repo_arch
-            )
+                repo_url = ('http://repos.bigtop.apache.org/releases/'
+                            '{version}/{dist}/{release}/{arch}')
+                # Substitute params.
+                bigtop_repo_url = repo_url.format(
+                    version=self.bigtop_version,
+                    dist=dist_name,
+                    release=dist_release,
+                    arch=repo_arch
+                )
         elif bigtop_version == 'master':
-            if dist_name == 'ubuntu' and dist_series == 'xenial':
-                if repo_arch == "x86_64":
-                    bigtop_repo_url = ('https://ci.bigtop.apache.org/'
-                                       'job/Bigtop-trunk-repos/'
-                                       'OS=ubuntu-16.04,label=docker-slave/'
-                                       'ws/output/apt')
-                else:
-                    bigtop_repo_url = ('https://ci.bigtop.apache.org/'
-                                       'job/Bigtop-trunk-repos/'
-                                       'OS=ubuntu-16.04-{},label=docker-slave/'
-                                       'ws/output/apt'.format(repo_arch))
+            if repo_arch == "x86_64":
+                bigtop_repo_url = ('https://ci.bigtop.apache.org/'
+                                   'job/Bigtop-trunk-repos/'
+                                   'OS=ubuntu-16.04,label=docker-slave/'
+                                   'ws/output/apt')
             else:
-                raise BigtopError(
-                    u"Charms only support Bigtop 'master' on Ubuntu/Xenial.")
+                bigtop_repo_url = ('https://ci.bigtop.apache.org/'
+                                   'job/Bigtop-trunk-repos/'
+                                   'OS=ubuntu-16.04-{},label=docker-slave/'
+                                   'ws/output/apt'.format(repo_arch))
         else:
             raise BigtopError(
                 u"Unknown Bigtop version for repo_url: {}".format(bigtop_version))
