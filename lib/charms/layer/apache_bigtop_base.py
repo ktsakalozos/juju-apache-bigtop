@@ -167,9 +167,10 @@ class Bigtop(object):
                 arch=repo_arch
             )
         elif bigtop_version == '1.2.1':
-            # NB: Kafka is no longer served from official repos, nor are there
-            # non-x86 repos available for 1.2.1. Handle these cases by using
-            # the bigtop CI repository.
+            # NB: Kafka is no longer served from official repos [1], nor are
+            # there non-x86 repos available for 1.2.1. Handle these cases by
+            # using the bigtop CI repository.
+            # [1]: http://mail-archives.apache.org/mod_mbox/bigtop-announce/201708.mbox/thread
             if hookenv.metadata()['name'] == 'kafka' or repo_arch != "x86_64":
                 bigtop_repo_url = ('https://ci.bigtop.apache.org/'
                                    'job/Bigtop-1.2.1/'
