@@ -1,0 +1,237 @@
+From 7cd7794881b09109b3bb0bdfff9d2e00f6e3b127 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Jos=C3=A9=20Pekkarinen?= <jose.pekkarinen@canonical.com>
+Date: Fri, 2 Mar 2018 16:20:25 +0200
+Subject: [PATCH] BIGTOP-3011: zookeeper autopurge options
+
+Closes #346
+
+Signed-off-by: Kevin W Monroe <kevin.monroe@canonical.com>
+---
+ .../modules/hadoop_zookeeper/manifests/init.pp     |  2 +
+ .../modules/hadoop_zookeeper/templates/zoo.cfg     |  7 ++
+ .../charm/zookeeper/layer-zookeeper/config.yaml    | 17 ++++-
+ .../lib/charms/layer/bigtop_zookeeper.py           | 11 ++-
+ .../layer-zookeeper/reactive/zookeeper.py          | 20 +++++
+ .../layer-zookeeper/tests/20-snapshots.py          | 89 ++++++++++++++++++++++
+ 6 files changed, 144 insertions(+), 2 deletions(-)
+ create mode 100755 bigtop-packages/src/charm/zookeeper/layer-zookeeper/tests/20-snapshots.py
+
+diff --git a/bigtop-deploy/puppet/modules/hadoop_zookeeper/manifests/init.pp b/bigtop-deploy/puppet/modules/hadoop_zookeeper/manifests/init.pp
+index e7cb605..1051dc7 100644
+--- a/bigtop-deploy/puppet/modules/hadoop_zookeeper/manifests/init.pp
++++ b/bigtop-deploy/puppet/modules/hadoop_zookeeper/manifests/init.pp
+@@ -64,6 +64,8 @@ class hadoop_zookeeper (
+                 $ensemble = [$myid, "localhost:2888:3888"],
+                 $kerberos_realm = $hadoop_zookeeper::kerberos_realm,
+                 $client_bind_addr = "",
++                $autopurge_purge_interval = "24",
++                $autopurge_snap_retain_count = "3",
+   ) inherits hadoop_zookeeper {
+     include hadoop_zookeeper::common
+ 
+diff --git a/bigtop-deploy/puppet/modules/hadoop_zookeeper/templates/zoo.cfg b/bigtop-deploy/puppet/modules/hadoop_zookeeper/templates/zoo.cfg
+index aaa9281..a3f1fcb 100644
+--- a/bigtop-deploy/puppet/modules/hadoop_zookeeper/templates/zoo.cfg
++++ b/bigtop-deploy/puppet/modules/hadoop_zookeeper/templates/zoo.cfg
+@@ -40,7 +40,14 @@ server.<%= idx %>=<%= server %>
+   <% end %>
+ <% end %>
+ # purge snapshots every day
++<% if !@autopurge_purge_interval.nil? && !@autopurge_purge_interval.empty? -%>
++autopurge.purgeInterval=<%= @autopurge_purge_interval %>
++<% else -%>
+ autopurge.purgeInterval=24
++<% end -%>
++<% if !@autopurge_snap_retain_count.nil? && !@autopurge_snap_retain_count.empty? -%>
++autopurge.snapRetainCount=<%= @autopurge_snap_retain_count %>
++<% end %>
+ 
+ <% if @kerberos_realm != "" -%>
+ authProvider.1=org.apache.zookeeper.server.auth.SASLAuthenticationProvider
+diff --git a/bigtop-packages/src/charm/zookeeper/layer-zookeeper/config.yaml b/bigtop-packages/src/charm/zookeeper/layer-zookeeper/config.yaml
+index d88a94b..df9af76 100644
+--- a/bigtop-packages/src/charm/zookeeper/layer-zookeeper/config.yaml
++++ b/bigtop-packages/src/charm/zookeeper/layer-zookeeper/config.yaml
+@@ -7,4 +7,19 @@ options:
+       to accepting connections on all interfaces. Accepts either the
+       name of an interface (e.g., 'eth0'), or a CIDR range. If the
+       latter, we\'ll bind to the first interface that we find with an
+-      IP address in that range.
+\ No newline at end of file
++      IP address in that range.
++  autopurge_purge_interval:
++    default: "24"
++    type: string
++    description: |
++      The time interval in hours for which the purge task has to be
++      triggered. Set to a positive integer (1 and above) to enable
++      the auto purging. Defaults to 24.
++  autopurge_snap_retain_count:
++    default: "3"
++    type: string
++    description: |
++      When enabled, ZooKeeper auto purge feature retains the
++      snapRetainCount most recent snapshots and the corresponding
++      transaction logs in the dataDir and dataLogDir respectively
++      and deletes the rest. Defaults to 3. Minimum value is 3.
+diff --git a/bigtop-packages/src/charm/zookeeper/layer-zookeeper/lib/charms/layer/bigtop_zookeeper.py b/bigtop-packages/src/charm/zookeeper/layer-zookeeper/lib/charms/layer/bigtop_zookeeper.py
+index 5f1695c..c5282be 100644
+--- a/bigtop-packages/src/charm/zookeeper/layer-zookeeper/lib/charms/layer/bigtop_zookeeper.py
++++ b/bigtop-packages/src/charm/zookeeper/layer-zookeeper/lib/charms/layer/bigtop_zookeeper.py
+@@ -115,10 +115,19 @@ class Zookeeper(object):
+             "hadoop_zookeeper::server::myid": local_unit().split("/")[1],
+             "hadoop_zookeeper::server::ensemble": self.read_peers()
+         }
+-        network_interface = config().get('network_interface')
++        conf = config()
++        network_interface = conf.get('network_interface')
++        autopurge_purge_interval = conf.get('autopurge_purge_interval')
++        autopurge_snap_retain_count = conf.get('autopurge_snap_retain_count')
+         if network_interface:
+             key = "hadoop_zookeeper::server::client_bind_addr"
+             override[key] = Bigtop().get_ip_for_interface(network_interface)
++        if autopurge_purge_interval:
++            key = "hadoop_zookeeper::server::autopurge_purge_interval"
++            override[key] = autopurge_purge_interval
++        if autopurge_snap_retain_count:
++            key = "hadoop_zookeeper::server::autopurge_snap_retain_count"
++            override[key] = autopurge_snap_retain_count
+ 
+         return override
+ 
+diff --git a/bigtop-packages/src/charm/zookeeper/layer-zookeeper/reactive/zookeeper.py b/bigtop-packages/src/charm/zookeeper/layer-zookeeper/reactive/zookeeper.py
+index 51c7c75..0cf11c2 100644
+--- a/bigtop-packages/src/charm/zookeeper/layer-zookeeper/reactive/zookeeper.py
++++ b/bigtop-packages/src/charm/zookeeper/layer-zookeeper/reactive/zookeeper.py
+@@ -40,6 +40,12 @@ def install_zookeeper():
+     data_changed(
+         'zk.network_interface',
+         hookenv.config().get('network_interface'))
++    data_changed(
++        'zk.autopurge_purge_interval',
++        hookenv.config().get('autopurge_purge_interval'))
++    data_changed(
++        'zk.autopurge_snap_retain_count',
++        hookenv.config().get('autopurge_snap_retain_count'))
+     zookeeper.install()
+     zookeeper.open_ports()
+     set_state('zookeeper.installed')
+@@ -73,6 +79,20 @@ def update_network_interface():
+         _restart_zookeeper('updating network interface')
+ 
+ 
++@when('zookeeper.started')
++def update_autopurge_purge_interval():
++    purge_interval = hookenv.config().get('autopurge_purge_interval')
++    if data_changed('zk.autopurge_purge_interval', purge_interval):
++        _restart_zookeeper('updating snapshot purge interval')
++
++
++@when('zookeeper.started')
++def update_autopurge_snap_retain_count():
++    snap_retain = hookenv.config().get('autopurge_snap_retain_count')
++    if data_changed('zk.autopurge_snap_retain_count', snap_retain):
++        _restart_zookeeper('updating number of retained snapshots')
++
++
+ @when('zookeeper.started', 'zookeeper.joined')
+ def serve_client(client):
+     config = Zookeeper().dist_config
+diff --git a/bigtop-packages/src/charm/zookeeper/layer-zookeeper/tests/20-snapshots.py b/bigtop-packages/src/charm/zookeeper/layer-zookeeper/tests/20-snapshots.py
+new file mode 100755
+index 0000000..6ba2e57
+--- /dev/null
++++ b/bigtop-packages/src/charm/zookeeper/layer-zookeeper/tests/20-snapshots.py
+@@ -0,0 +1,89 @@
++#!/usr/bin/python3
++
++# Licensed to the Apache Software Foundation (ASF) under one or more
++# contributor license agreements.  See the NOTICE file distributed with
++# this work for additional information regarding copyright ownership.
++# The ASF licenses this file to You under the Apache License, Version 2.0
++# (the "License"); you may not use this file except in compliance with
++# the License.  You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++
++import amulet
++import re
++import time
++import unittest
++
++TIMEOUT = 1800
++
++
++class TestAutopurge(unittest.TestCase):
++    """
++    Test to verify options for snapshots are set in place.
++    """
++    @classmethod
++    def setUpClass(cls):
++        cls.d = amulet.Deployment(series='xenial')
++        cls.d.add('zk-autopurge', charm='zookeeper')
++        cls.d.setup(timeout=TIMEOUT)
++        cls.d.sentry.wait_for_messages({'zk-autopurge': re.compile('^ready')},
++                                       timeout=TIMEOUT)
++        cls.unit = cls.d.sentry['zk-autopurge'][0]
++
++    @classmethod
++    def tearDownClass(cls):
++        # NB: seems to be a remove_service issue with amulet. However, the
++        # unit does still get removed. Pass OSError for now:
++        #  OSError: juju command failed ['remove-application', 'zk-autopurge']:
++        #  ERROR allocation for service ...zk-autopurge... owned by ... not found
++        try:
++            cls.d.remove_service('zk-autopurge')
++        except OSError as e:
++            print("IGNORE: Amulet remove_service failed: {}".format(e))
++            pass
++
++    def test_autopurge_config(self):
++        """
++        Verify that purgeInterval and snapRetainCount are set successfully.
++        """
++        autopurge_purge_interval = 30
++        autopurge_snap_retain_count = 5
++        self.d.configure('zk-autopurge', {
++            'autopurge_purge_interval': autopurge_purge_interval,
++            'autopurge_snap_retain_count': autopurge_snap_retain_count,
++        })
++
++        # NB: we used to watch for a maintenance status message, but every now
++        # and then, we'd miss it. Wait 2m to let the config-changed hook settle.
++        time.sleep(120)
++        ret = self.unit.run(
++            'grep autopurge\.purgeInterval /etc/zookeeper/conf/zoo.cfg')[0]
++        matcher = re.compile(
++            "^autopurge\.purgeInterval={}".format(autopurge_purge_interval))
++        self.assertTrue(matcher.match(ret))
++
++        ret = self.unit.run(
++            'grep autopurge\.snapRetainCount /etc/zookeeper/conf/zoo.cfg')[0]
++        matcher = re.compile(
++            "^autopurge\.snapRetainCount={}".format(autopurge_snap_retain_count))
++        self.assertTrue(matcher.match(ret))
++
++        # Verify that smoke tests still run and the unit returns to 'ready'
++        smk_uuid = self.unit.run_action('smoke-test')
++        # 'zookeeper' smoke takes a while (bigtop tests are slow)
++        result = self.d.action_fetch(smk_uuid, timeout=1800, full_output=True)
++        # actions set status=completed on success
++        if (result['status'] != "completed"):
++            self.fail('Zookeeper smoke-test failed: %s' % result)
++        self.d.sentry.wait_for_messages({'zk-autopurge': re.compile('^ready')},
++                                        timeout=TIMEOUT)
++
++
++if __name__ == '__main__':
++    unittest.main()
+-- 
+2.7.4
+
