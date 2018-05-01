@@ -9,7 +9,8 @@ options:
         upstream bits.
   install-cuda:
     type: boolean
-    default: false
+    default: True
     description: |
-      Install the CUDA binaries if capable hardware is present. This option
-      is False by default, as not all applications support GPU acceleration.
+      Install the CUDA binaries if capable hardware is present (True by
+      default). Set to False to disable CUDA installation regardless of
+      capable hardware.
