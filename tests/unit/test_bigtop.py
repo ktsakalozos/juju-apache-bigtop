@@ -141,7 +141,7 @@ class TestBigtopUnit(Harness):
         mock_utils.cpu_arch.return_value = 'foo'
         self.assertEqual(self.bigtop.get_repo_url('1.2.1'),
                          ('https://ci.bigtop.apache.org/job/Bigtop-1.2.1/'
-                          'OS=ubuntu-16.04/ws/output/apt'))
+                          'OS=ubuntu-16.04/lastSuccessfulBuild/artifact/output/apt'))
 
         # master on xenial/intel
         mock_ver.return_value = 'master'

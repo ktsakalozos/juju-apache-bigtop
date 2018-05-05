@@ -173,8 +173,8 @@ class Bigtop(object):
             # [1]: http://mail-archives.apache.org/mod_mbox/bigtop-announce/201708.mbox/thread
             if hookenv.metadata()['name'] == 'kafka' or repo_arch != "x86_64":
                 bigtop_repo_url = ('https://ci.bigtop.apache.org/'
-                                   'job/Bigtop-1.2.1/'
-                                   'OS=ubuntu-16.04/ws/output/apt')
+                                   'job/Bigtop-1.2.1/OS=ubuntu-16.04/'
+                                   'lastSuccessfulBuild/artifact/output/apt')
             else:
                 repo_url = ('http://repos.bigtop.apache.org/releases/'
                             '{version}/{dist}/{release}/{arch}')
