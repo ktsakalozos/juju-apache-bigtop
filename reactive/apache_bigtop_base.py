@@ -11,11 +11,15 @@ from jujubigdata import utils
 
 @when_none('java.ready', 'hadoop-plugin.java.ready', 'hadoop-rest.joined')
 def missing_java():
-    if layer.options('apache-bigtop-base').get('install_java'):
+    if layer.options.get('apache-bigtop-base', 'install_java'):
+        # layer.yaml has told us to install java in this layer.
         set_state('install_java')
     elif any_states('java.joined', 'hadoop-plugin.joined'):
+        # a java charm and/or hadoop-plugin will be installing java, but they
+        # are not ready yet. set appropriate status.
         hookenv.status_set('waiting', 'waiting on java')
     else:
+        # if we make it here, we're blocked until related to a java charm.
         hookenv.status_set('blocked', 'waiting on relation to java')
 
 
