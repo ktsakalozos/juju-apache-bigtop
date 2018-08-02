@@ -57,7 +57,7 @@ class TestFetchBigtop(Harness):
     '''
     def setUp(self):
         super(TestFetchBigtop, self).setUp()
-        self.bigtop_patcher = mock.patch('apache_bigtop_base.Bigtop')
+        self.bigtop_patcher = mock.patch('charms.layer.apache_bigtop_base.Bigtop')
         mock_bigtop_class = self.bigtop_patcher.start()
         self.mock_bigtop = mock.Mock()
         mock_bigtop_class.return_value = self.mock_bigtop
@@ -102,7 +102,7 @@ class TestChangeBigtopVersion(Harness):
     '''
     def setUp(self):
         super(TestChangeBigtopVersion, self).setUp()
-        self.bigtop_patcher = mock.patch('apache_bigtop_base.Bigtop')
+        self.bigtop_patcher = mock.patch('charms.layer.apache_bigtop_base.Bigtop')
         mock_bigtop_class = self.bigtop_patcher.start()
         self.mock_bigtop = mock.Mock()
         mock_bigtop_class.return_value = self.mock_bigtop

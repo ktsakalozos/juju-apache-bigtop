@@ -5,7 +5,6 @@ from charmhelpers.core import hookenv, unitdata
 from charmhelpers.core.host import ChecksumError
 from charmhelpers.fetch import UnhandledSource
 from charms import layer
-from charms.layer.apache_bigtop_base import Bigtop
 from jujubigdata import utils
 
 
@@ -28,7 +27,7 @@ def missing_java():
 def fetch_bigtop():
     hookenv.status_set('maintenance', 'installing apache bigtop base')
     try:
-        Bigtop().install()
+        layer.apache_bigtop_base.Bigtop().install()
     except UnhandledSource as e:
         hookenv.status_set('blocked', 'unable to fetch apache bigtop: %s' % e)
     except ChecksumError:
@@ -56,7 +55,7 @@ def change_bigtop_version():
     if pre_ver and cur_ver != pre_ver:
         hookenv.log('Bigtop version {} requested over {}. Refreshing source.'
                     .format(cur_ver, pre_ver))
-        Bigtop().refresh_bigtop_release()
+        layer.apache_bigtop_base.Bigtop().refresh_bigtop_release()
         hookenv.status_set('waiting', 'pending scan for package updates')
         set_state('bigtop.version.changed')
 
