@@ -189,7 +189,7 @@ class TestBigtopUnit(Harness):
         '''
         mock_lsb_release.return_value = {'DISTRIB_CODENAME': 'xenial'}
 
-        # Should be noop if bigtop_jdk not set.
+        # Should be noop if install_java layer opt is not set.
         self.bigtop.options.get.return_value = ''
         self.bigtop.install_java()
 
@@ -198,7 +198,7 @@ class TestBigtopUnit(Harness):
         self.assertFalse(mock_fetch.apt_install.called)
         self.assertFalse(mock_utils.re_edit_in_place.called)
 
-        # Should add ppa if we have set bigtop_jdk.
+        # Should apt install if install_java layer opt is set.
         self.bigtop.options.get.return_value = 'foo'
         print("options: {}".format(self.bigtop.options))
         self.bigtop.install_java()
@@ -728,7 +728,7 @@ class TestHelpers(Harness):
     @mock.patch('charms.layer.apache_bigtop_base.layer.options')
     def test_get_layer_opts(self, mock_options):
         '''Verify that we parse whatever dict we get back from options.'''
-        mock_options.return_value = {'foo': 'bar'}
+        mock_options.get.return_value = {'foo': 'bar'}
         ret = get_layer_opts()
         self.assertEqual(ret.dist_config['foo'], 'bar')
 
