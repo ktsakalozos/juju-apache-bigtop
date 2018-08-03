@@ -56,7 +56,7 @@ class Bigtop(object):
 
     def __init__(self):
         self.bigtop_dir = '/home/ubuntu/bigtop.release'
-        self.options = layer.options('apache-bigtop-base')
+        self.options = layer.options.get('apache-bigtop-base')
         self._bigtop_version = hookenv.config()['bigtop_version']
         self._bigtop_apt = self.get_repo_url(self.bigtop_version)
         self._bigtop_base = Path(self.bigtop_dir) / 'bigtop-{}'.format(
@@ -925,8 +925,8 @@ def java_home():
     java_home = unitdata.kv().get('java_home')
 
     # Otherwise, check to see if we've asked bigtop to install java.
-    options = layer.options('apache-bigtop-base')
-    if java_home is None and options.get('install_java'):
+    install_java = layer.options.get('apache-bigtop-base', 'install_java')
+    if java_home is None and install_java:
         # Figure out where java got installed. This should work in
         # both recent Debian and recent Redhat based distros.
         if os.path.exists('/etc/alternatives/java'):
@@ -936,7 +936,7 @@ def java_home():
 
 
 def get_layer_opts():
-    return utils.DistConfig(data=layer.options('apache-bigtop-base'))
+    return utils.DistConfig(data=layer.options.get('apache-bigtop-base'))
 
 
 def get_fqdn():

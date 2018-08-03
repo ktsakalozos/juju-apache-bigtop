@@ -27,7 +27,6 @@ import sys
 
 from charmhelpers.core import hookenv
 from charms import layer
-from charms.layer.apache_bigtop_base import Bigtop
 from charms.reactive import is_state
 
 
@@ -40,12 +39,12 @@ def fail(msg):
 if not is_state('bigtop.available'):
     fail('Bigtop is not yet ready')
 
-cfg = layer.options('apache-bigtop-base')
+cfg = layer.options.get('apache-bigtop-base')
 smoke_components = cfg.get('bigtop_smoketest_components')
 if not smoke_components:
     fail('No bigtop_smoketest_components found for this charm')
 
-bigtop = Bigtop()
+bigtop = layer.apache_bigtop_base.Bigtop()
 result = bigtop.run_smoke_tests(smoke_components)
 if result == 'success':
     hookenv.action_set({'outcome': 'success'})

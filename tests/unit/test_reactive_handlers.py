@@ -22,31 +22,29 @@ class TestMissingJava(Harness):
     @mock.patch('apache_bigtop_base.hookenv.status_set')
     def test_missing_java(self, mock_status, mock_options):
         '''
-        Test to verify that our missing_java function kicks us into a
-        'waiting' state if 'java.joined' is set, or tells us that
-        we're blocked if it is not.
-
-        In the case of install_java being set, verify that we instead
-        set the install_java state, and set no status.
+        Test to verify that our missing_java function sets an appropriate
+        state or status message.
 
         '''
         mock_status.side_effect = self.status_set
-        mock_options.return_value = {'install_java': 'foo'}
 
+        # Test install_java is set
+        mock_options.get.return_value = {'foo'}
         missing_java()
         self.assertTrue(is_state('install_java'))
         self.assertFalse(self.last_status[0])
 
-        mock_options.return_value = {'install_java': ''}
-
-        set_state('some.state')
+        # Test neither install_java nor java states are set
+        mock_options.get.return_value = {}
         missing_java()
         self.assertEqual(self.last_status[0], 'blocked')
 
+        # Test install_java is not set, but we do have a java state
         set_state('java.joined', 'some.other.state')
         missing_java()
         self.assertEqual(self.last_status[0], 'waiting')
 
+        # Test install_java is not set, and our java state has gone away
         remove_state('java.joined')
         missing_java()
         self.assertEqual(self.last_status[0], 'blocked')
@@ -59,7 +57,7 @@ class TestFetchBigtop(Harness):
     '''
     def setUp(self):
         super(TestFetchBigtop, self).setUp()
-        self.bigtop_patcher = mock.patch('apache_bigtop_base.Bigtop')
+        self.bigtop_patcher = mock.patch('charms.layer.apache_bigtop_base.Bigtop')
         mock_bigtop_class = self.bigtop_patcher.start()
         self.mock_bigtop = mock.Mock()
         mock_bigtop_class.return_value = self.mock_bigtop
@@ -104,7 +102,7 @@ class TestChangeBigtopVersion(Harness):
     '''
     def setUp(self):
         super(TestChangeBigtopVersion, self).setUp()
-        self.bigtop_patcher = mock.patch('apache_bigtop_base.Bigtop')
+        self.bigtop_patcher = mock.patch('charms.layer.apache_bigtop_base.Bigtop')
         mock_bigtop_class = self.bigtop_patcher.start()
         self.mock_bigtop = mock.Mock()
         mock_bigtop_class.return_value = self.mock_bigtop

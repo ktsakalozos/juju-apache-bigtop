@@ -20,15 +20,15 @@ includes: ['layer:apache-bigtop-base']
 
 This will fetch the layer from [interfaces.juju.solutions][] and
 incorporate it into your charm. To use the Bigtop class, import it,
-then call its `.render_site_yaml` and `.trigger_puppet` routines in
-sequence, like so (you might notice that Bigtop also has an `.install`
-routine -- this is run automatically in the reactive handlers of this
+then call its `render_site_yaml` and `trigger_puppet` methods in
+sequence, like so (you might notice that Bigtop also has an `install`
+method -- this is run automatically in the reactive handlers of this
 layer; you don't need to call it yourself):
 
 [interfaces.juju.solutions]: http://interfaces.juju.solutions/
 
 ```python
-from charms.layer.apache_bigtop_base import Bigtop
+from charms import layer
 
 # Setup arguments to pass to .render_site_yaml
 hosts = {'some_bigtop_service': <host>}
@@ -36,7 +36,7 @@ roles = ['some_bigtop_service_nodetype0', 'some_bigtop_service_nodetype1']
 override = {'some_bigtop_service::somekey': <somevalue>, ...}
 
 # Trigger a puppet run
-bigtop = Bigtop()
+bigtop = layer.apache_bigtop_base.Bigtop()
 bigtop.render_site_yaml(hosts, roles, override)
 bigtop.trigger_puppet()
 ```
@@ -44,7 +44,7 @@ bigtop.trigger_puppet()
 This tells Bigtop to run puppet and install your service.
 
 How does Bigtop know what to install? You tell it what to install by
-passing a list of *roles* to `.render_site_yaml`. You may wish to
+passing a list of *roles* to `render_site_yaml`. You may wish to
 consult [this list of valid roles][roles] to see what is available.
 
 [roles]: https://github.com/apache/bigtop/blob/master/bigtop-deploy/puppet/manifests/cluster.pp)
@@ -52,7 +52,7 @@ consult [this list of valid roles][roles] to see what is available.
 > **Note**: Bigtop is also able to generate a list of roles from a
 *component*. The Bigtop class is theoretically able to infer
 components from the *hosts* dict that you pass to
-`.render_site_yaml`. As of this writing, this code path is not well
+`render_site_yaml`. As of this writing, this code path is not well
 tested, so you may want to specify roles explicitly. [List of
 valid components][components].
 

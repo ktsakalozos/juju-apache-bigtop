@@ -27,7 +27,7 @@
 import sys
 
 from charmhelpers.core import hookenv, unitdata
-from charms.layer.apache_bigtop_base import Bigtop
+from charms import layer
 from charms.reactive import is_state
 
 
@@ -47,7 +47,7 @@ if not is_state('bigtop.version.changed'):
 if not unitdata.kv().get('<CHARM>.version.repo', False):
     fail('Charm is not prepared to run the reinstall action.')
 
-bigtop = Bigtop()
+bigtop = layer.apache_bigtop_base.Bigtop()
 result = bigtop.reinstall_repo_packages()
 
 if result == 'success':

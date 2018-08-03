@@ -5,17 +5,20 @@ from charmhelpers.core import hookenv, unitdata
 from charmhelpers.core.host import ChecksumError
 from charmhelpers.fetch import UnhandledSource
 from charms import layer
-from charms.layer.apache_bigtop_base import Bigtop
 from jujubigdata import utils
 
 
 @when_none('java.ready', 'hadoop-plugin.java.ready', 'hadoop-rest.joined')
 def missing_java():
-    if layer.options('apache-bigtop-base').get('install_java'):
+    if layer.options.get('apache-bigtop-base', 'install_java'):
+        # layer.yaml has told us to install java in this layer.
         set_state('install_java')
     elif any_states('java.joined', 'hadoop-plugin.joined'):
+        # a java charm and/or hadoop-plugin will be installing java, but they
+        # are not ready yet. set appropriate status.
         hookenv.status_set('waiting', 'waiting on java')
     else:
+        # if we make it here, we're blocked until related to a java charm.
         hookenv.status_set('blocked', 'waiting on relation to java')
 
 
@@ -24,7 +27,7 @@ def missing_java():
 def fetch_bigtop():
     hookenv.status_set('maintenance', 'installing apache bigtop base')
     try:
-        Bigtop().install()
+        layer.apache_bigtop_base.Bigtop().install()
     except UnhandledSource as e:
         hookenv.status_set('blocked', 'unable to fetch apache bigtop: %s' % e)
     except ChecksumError:
@@ -52,7 +55,7 @@ def change_bigtop_version():
     if pre_ver and cur_ver != pre_ver:
         hookenv.log('Bigtop version {} requested over {}. Refreshing source.'
                     .format(cur_ver, pre_ver))
-        Bigtop().refresh_bigtop_release()
+        layer.apache_bigtop_base.Bigtop().refresh_bigtop_release()
         hookenv.status_set('waiting', 'pending scan for package updates')
         set_state('bigtop.version.changed')
 
