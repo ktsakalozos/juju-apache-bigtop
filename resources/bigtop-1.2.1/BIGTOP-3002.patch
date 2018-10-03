@@ -1,0 +1,64 @@
+From f1b95c262f2324a59688c50c8c0aa3abd57718b4 Mon Sep 17 00:00:00 2001
+From: Gregory Van Seghbroeck <gregory.vanseghbroeck@intec.ugent.be>
+Date: Fri, 23 Feb 2018 21:07:47 +0100
+Subject: [PATCH] BIGTOP-3002: For Kafka, it should be possible to set the
+ broker.id config and log.dirs config.
+
+Added 2 new parameters: broker_id, log_dirs. Both do not necessarily
+need to be set. It is only when they are set , the parameters are used
+in the server.properties file.
+---
+ bigtop-deploy/puppet/modules/kafka/manifests/init.pp |  2 ++
+ .../puppet/modules/kafka/templates/server.properties | 12 ++++++++++++
+ 2 files changed, 14 insertions(+)
+
+diff --git a/bigtop-deploy/puppet/modules/kafka/manifests/init.pp b/bigtop-deploy/puppet/modules/kafka/manifests/init.pp
+index d20948aa7..f13dec126 100644
+--- a/bigtop-deploy/puppet/modules/kafka/manifests/init.pp
++++ b/bigtop-deploy/puppet/modules/kafka/manifests/init.pp
+@@ -22,6 +22,8 @@
+   }
+ 
+   class server(
++      $broker_id = undef,
++      $log_dirs = undef,
+       $bind_addr = undef,
+       $port = "9092",
+       $zookeeper_connection_string = "localhost:2181",
+diff --git a/bigtop-deploy/puppet/modules/kafka/templates/server.properties b/bigtop-deploy/puppet/modules/kafka/templates/server.properties
+index 637281226..a58c7b3aa 100644
+--- a/bigtop-deploy/puppet/modules/kafka/templates/server.properties
++++ b/bigtop-deploy/puppet/modules/kafka/templates/server.properties
+@@ -17,12 +17,20 @@
+ ############################# Server Basics #############################
+ 
+ # The id of the broker. This must be set to a unique integer for each broker.
++<% if @broker_id.nil? -%>
+ broker.id=-1
+ 
+ # Enable automatic broker id generation on the server. When enabled the value
+ # configured for reserved.broker.max.id should be reviewed.
+ broker.id.generation.enable=true
+ reserved.broker.max.id=1000
++<% else -%>
++broker.id=<%= @broker_id %>
++
++# Disable automatic broker id generation on the server.
++broker.id.generation.enable=false
++#reserved.broker.max.id=1000
++<% end -%>
+ 
+ ############################# Socket Server Settings #############################
+ 
+@@ -64,7 +72,11 @@ socket.request.max.bytes=104857600
+ ############################# Log Basics #############################
+ 
+ # A comma seperated list of directories under which to store log files
++<% if @log_dirs.nil? -%>
+ log.dirs=/tmp/kafka-logs
++<% else -%>
++log.dirs=<%= @log_dirs %>
++<% end -%>
+ 
+ # The default number of log partitions per topic. More partitions allow greater
+ # parallelism for consumption, but this will also result in more files across
