@@ -190,20 +190,20 @@ class Bigtop(object):
             # there non-x86 repos available for 1.2.1. Handle these cases by
             # using the bigtop CI repository.
             # [1]: http://mail-archives.apache.org/mod_mbox/bigtop-announce/201708.mbox/thread
-            if hookenv.metadata()['name'] == 'kafka' or repo_arch != "x86_64":
-                bigtop_repo_url = ('https://ci.bigtop.apache.org/job/Bigtop-1.3.0/'
+            #if hookenv.metadata()['name'] == 'kafka' or repo_arch != "x86_64":
+            bigtop_repo_url = ('https://ci.bigtop.apache.org/job/Bigtop-1.3.0/'
                                    'DISTRO=ubuntu-16.04,PLATFORM=amd64-slave/'
                                    'lastSuccessfulBuild/artifact/output/apt/')
-            else:
-                repo_url = ('http://repos.bigtop.apache.org/releases/'
-                            '{version}/{dist}/{release}/{arch}')
-                # Substitute params.
-                bigtop_repo_url = repo_url.format(
-                    version=self.bigtop_version,
-                    dist=dist_name,
-                    release=dist_release,
-                    arch=repo_arch
-                )
+            # else:
+            #     repo_url = ('http://repos.bigtop.apache.org/releases/'
+            #                 '{version}/{dist}/{release}/{arch}')
+            #     # Substitute params.
+            #     bigtop_repo_url = repo_url.format(
+            #         version=self.bigtop_version,
+            #         dist=dist_name,
+            #         release=dist_release,
+            #         arch=repo_arch
+            #     )
         elif bigtop_version == 'master':
             if repo_arch == "x86_64":
                 bigtop_repo_url = ('https://ci.bigtop.apache.org/'
@@ -829,7 +829,6 @@ class Bigtop(object):
     def reinstall_repo_packages(self, remove_pkgs=None):
         """
         Trigger a puppet apply to reinstall packages from a bigtop repository.
-
         Call this after a new bigtop version has been configured by the user.
         Typically called from a charm action, this method will:
         - optionally remove packages before reconfiguring the system
