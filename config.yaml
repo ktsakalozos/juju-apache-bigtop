@@ -1,10 +1,10 @@
 options:
   bigtop_version:
     type: string
-    default: '1.3.0'
+    default: '1.4.0'
     description: |
-        Apache Bigtop release version. The default, '1.3.0' will use the
-        current GA release, Bigtop 1.3.0, for all hiera data, puppet recipes,
+        Apache Bigtop release version. The default, '1.4.0' will use the
+        current GA release, Bigtop 1.4.0, for all hiera data, puppet recipes,
         and installable packages. Set this to 'master' to use the latest
         upstream bits.
   install-cuda:
