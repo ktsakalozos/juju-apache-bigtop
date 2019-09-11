@@ -204,6 +204,11 @@ class Bigtop(object):
             #         release=dist_release,
             #         arch=repo_arch
             #     )
+        elif bigtop_version == '1.4.0':
+            bigtop_repo_url = ('https://ci.bigtop.apache.org/job/Bigtop-1.4.0/'
+                                   'DISTRO=ubuntu-16.04,PLATFORM=amd64-slave/'
+                                   'lastSuccessfulBuild/artifact/output/apt/')
+            
         elif bigtop_version == 'master':
             if repo_arch == "x86_64":
                 bigtop_repo_url = ('https://ci.bigtop.apache.org/'
