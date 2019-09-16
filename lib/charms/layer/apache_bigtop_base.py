@@ -733,6 +733,7 @@ class Bigtop(object):
         else:
             puppet_args = [
                 '-d',
+                '--parser=future',
                 '--modulepath="bigtop-deploy/puppet/modules:/etc/puppet/modules"',
                 'bigtop-deploy/puppet/manifests'
             ]
