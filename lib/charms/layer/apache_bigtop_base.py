@@ -516,6 +516,8 @@ class Bigtop(object):
                 bigtop_branch = 'branch-1.2'
             elif self.bigtop_version.startswith('1.3'):
                 bigtop_branch = 'branch-1.3'
+            elif self.bigtop_version.startswith('1.4'):
+                bigtop_branch = 'branch-1.4'
             elif self.bigtop_version == 'master':
                 bigtop_branch = 'master'
             else:
