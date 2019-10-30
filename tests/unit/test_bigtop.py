@@ -766,7 +766,7 @@ class TestJavaHome(Harness):
         relation.
 
         '''
-        mock_unitdata.return_value = {'java_home': 'foo'}
+        mock_unitdata().get.return_value = 'foo'
 
         self.assertEqual(java_home(), 'foo')
 
@@ -777,8 +777,8 @@ class TestJavaHome(Harness):
         Verify that we handle the situation where we have no java home.
 
         '''
-        mock_unitdata.return_value = {}
-        mock_options.return_value = {}
+        mock_unitdata().get.return_value = None
+        mock_options.get.return_value = {}
 
         self.assertEqual(java_home(), None)
 
@@ -791,8 +791,8 @@ class TestJavaHome(Harness):
         options.
 
         '''
-        mock_unitdata.return_value = {}
-        mock_options.return_value = {'install_java': 'foo'}
+        mock_unitdata().get.return_value = None
+        mock_options.get.return_value = {'install_java': 'foo'}
         mock_path.exists.return_value = True
         mock_path.realpath.return_value = '/foo/bar/bin/java'
 
