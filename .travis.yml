@@ -1,13 +1,7 @@
 language: python
-sudo: true
-dist: trusty
 python:
   - '3.5'
-
 install:
-  - make sysdeps
-env:
-  global:
-    - PATH=/snap/bin:$PATH
+  - pip install tox-travis
 script:
   - make all

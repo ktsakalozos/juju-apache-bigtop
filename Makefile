@@ -13,16 +13,12 @@ clean:
 
 .PHONY: sysdeps
 sysdeps:
-	@which charm >/dev/null || (sudo apt-get install -y snapd && sudo snap install charm --candidate)
 	@which tox >/dev/null || (sudo apt-get install -y python-pip && sudo pip install tox)
 
 .PHONY: lint
 lint: sysdeps
 	@echo Starting linter...
-	@tox -c tox_unit.ini --notest
-	@PATH=.tox/py34/bin:.tox/py35/bin flake8 $(wildcard hooks reactive lib unit_tests tests)
-	@echo Starting proof...
-	@charm proof
+	@tox -c tox_unit.ini -e lint
 
 .PHONY: unit_test
 unit_test: sysdeps

@@ -7,6 +7,9 @@ ignore:
   - 'tests/unit'
   - 'tox_unit.ini'
   - 'unit_test_requirements.txt'
+exclude:
+  - '.tox'
+  - '__pycache__'
 options:
   basic:
     packages:
