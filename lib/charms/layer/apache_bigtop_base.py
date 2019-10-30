@@ -190,10 +190,10 @@ class Bigtop(object):
             # there non-x86 repos available for 1.2.1. Handle these cases by
             # using the bigtop CI repository.
             # [1]: http://mail-archives.apache.org/mod_mbox/bigtop-announce/201708.mbox/thread
-            #if hookenv.metadata()['name'] == 'kafka' or repo_arch != "x86_64":
+            # if hookenv.metadata()['name'] == 'kafka' or repo_arch != "x86_64":
             bigtop_repo_url = ('https://ci.bigtop.apache.org/job/Bigtop-1.3.0/'
-                                   'DISTRO=ubuntu-16.04,PLATFORM=amd64-slave/'
-                                   'lastSuccessfulBuild/artifact/output/apt/')
+                               'DISTRO=ubuntu-16.04,PLATFORM=amd64-slave/'
+                               'lastSuccessfulBuild/artifact/output/apt/')
             # else:
             #     repo_url = ('http://repos.bigtop.apache.org/releases/'
             #                 '{version}/{dist}/{release}/{arch}')
@@ -206,9 +206,8 @@ class Bigtop(object):
             #     )
         elif bigtop_version == '1.4.0':
             bigtop_repo_url = ('https://ci.bigtop.apache.org/job/Bigtop-1.4.0/'
-                                   'DISTRO=ubuntu-16.04,PLATFORM=amd64-slave/'
-                                   'lastSuccessfulBuild/artifact/output/apt/')
-            
+                               'DISTRO=ubuntu-16.04,PLATFORM=amd64-slave/'
+                               'lastSuccessfulBuild/artifact/output/apt/')
         elif bigtop_version == 'master':
             if repo_arch == "x86_64":
                 bigtop_repo_url = ('https://ci.bigtop.apache.org/'
@@ -904,7 +903,7 @@ def get_hadoop_version():
     os.environ['JAVA_HOME'] = jhome
     try:
         hadoop_out = subprocess.check_output(['hadoop', 'version']).decode()
-    except FileNotFoundError:
+    except FileNotFoundError: # noqa: F821
         hadoop_out = ''
     except subprocess.CalledProcessError as e:
         hadoop_out = e.output

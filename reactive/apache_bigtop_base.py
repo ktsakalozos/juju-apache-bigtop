@@ -62,8 +62,8 @@ def change_bigtop_version():
 
 @when_any('java.ready', 'hadoop-plugin.java.ready')
 def set_java_home():
-    java = (RelationBase.from_state('java.ready') or
-            RelationBase.from_state('hadoop-plugin.java.ready'))
+    java = (RelationBase.from_state('java.ready')
+            or RelationBase.from_state('hadoop-plugin.java.ready')) # noqa: W503
     java_home = java.java_home()
     unitdata.kv().set('java_home', java_home)
     unitdata.kv().set('java_version', java.java_version())
