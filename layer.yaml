@@ -8,7 +8,9 @@ ignore:
   - 'tox_unit.ini'
   - 'unit_test_requirements.txt'
 exclude:
+  - '.coveragerc'
   - '.tox'
+  - '.travis.yml'
   - '__pycache__'
 options:
   basic:
